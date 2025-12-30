@@ -1,0 +1,918 @@
+import * as THREE from 'three'
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js'
+
+// ==========================================
+// 1. INITIAL SETUP & SCENE CONFIGURATION
+// ==========================================
+
+// Scene
+const scene = new THREE.Scene()
+const skyColor = new THREE.Color(0x87CEEB)
+scene.background = skyColor
+
+// Camera
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000)
+camera.position.set(30, 20, 30)
+camera.up.set(0, 1, 0)
+
+// Renderer
+const renderer = new THREE.WebGLRenderer({ 
+    antialias: true,
+    alpha: true
+})
+renderer.setSize(window.innerWidth, window.innerHeight)
+renderer.shadowMap.enabled = true
+renderer.shadowMap.type = THREE.PCFSoftShadowMap
+renderer.outputColorSpace = THREE.SRGBColorSpace
+document.body.appendChild(renderer.domElement)
+
+// Orbit Controls
+const controls = new OrbitControls(camera, renderer.domElement)
+controls.enableDamping = true
+controls.dampingFactor = 0.05
+controls.target.set(0, 5, 0)
+controls.enabled = true
+controls.update()
+
+// Clock
+const clock = new THREE.Clock()
+
+// ==========================================
+// 2. ADVANCED LIGHTING SYSTEM
+// ==========================================
+
+// Ambient Light
+const ambientLight = new THREE.AmbientLight(0xffffff, 1.0)
+scene.add(ambientLight)
+
+// Directional Light (Main Sun)
+const dirLight = new THREE.DirectionalLight(0xffffff, 2.0)
+dirLight.position.set(50, 100, 50)
+dirLight.castShadow = true
+dirLight.shadow.mapSize.width = 2048
+dirLight.shadow.mapSize.height = 2048
+dirLight.shadow.camera.near = 0.5
+dirLight.shadow.camera.far = 500
+dirLight.shadow.camera.left = -100
+dirLight.shadow.camera.right = 100
+dirLight.shadow.camera.top = 100
+dirLight.shadow.camera.bottom = -100
+scene.add(dirLight)
+
+// Hemisphere Light
+const hemisphereLight = new THREE.HemisphereLight(0x87CEEB, 0x8B4513, 0.5)
+scene.add(hemisphereLight)
+
+// Spot Light
+const spotLight = new THREE.SpotLight(0xffffff, 1.0, 200, Math.PI / 6, 0.5, 2)
+spotLight.position.set(30, 40, 30)
+spotLight.castShadow = true
+spotLight.shadow.mapSize.width = 1024
+spotLight.shadow.mapSize.height = 1024
+scene.add(spotLight)
+
+// Point Light
+const pointLight = new THREE.PointLight(0xff6600, 0.5, 50)
+pointLight.position.set(-10, 5, -10)
+scene.add(pointLight)
+
+// ==========================================
+// 3. LOADERS
+// ==========================================
+
+const dracoLoader = new DRACOLoader()
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/')
+const gltfLoader = new GLTFLoader()
+gltfLoader.setDRACOLoader(dracoLoader)
+
+// ==========================================
+// 4. GLOBAL VARIABLES
+// ==========================================
+
+let currentMapModel = null
+let cameraTarget = new THREE.Object3D()
+scene.add(cameraTarget)
+
+// Car System
+let carModel = null
+let carWheels = []
+let frontWheels = []
+let carSpeed = 0
+let steeringAngle = 0
+const raycaster = new THREE.Raycaster()
+const downVector = new THREE.Vector3(0, -1, 0)
+
+// Car Settings
+const carSettings = {
+    maxSpeed: 0.8,
+    acceleration: 0.01,
+    friction: 0.98,
+    turnSpeed: 0.03,
+    followCamera: true,
+    autoDrive: false
+}
+
+// Keyboard Input
+const keys = { w: false, a: false, s: false, d: false }
+
+// Event Listener Keyboard
+window.addEventListener('keydown', (e) => {
+    const key = e.key.toLowerCase()
+    keys[key] = true
+    
+    // Fitur Baru: Cek Koordinat dengan tombol 'P'
+    if (key === 'p') {
+        checkCoordinates()
+    }
+})
+
+window.addEventListener('keyup', (e) => {
+    keys[e.key.toLowerCase()] = false
+})
+
+// ==========================================
+// 5. HELPER FUNCTIONS
+// ==========================================
+
+// Fungsi untuk mengecek koordinat
+function checkCoordinates() {
+    if (carModel) {
+        const pos = carModel.position
+        const rot = carModel.rotation
+        
+        console.log(`📍 COORDINATE REPORT:`)
+        console.log(`Position: x: ${pos.x.toFixed(2)}, y: ${pos.y.toFixed(2)}, z: ${pos.z.toFixed(2)}`)
+        console.log(`Rotation Y: ${rot.y.toFixed(2)}`)
+        console.log(`------------------------`)
+
+        alert(`📍 Koordinat Mobil:\nX: ${pos.x.toFixed(2)}\nY: ${pos.y.toFixed(2)}\nZ: ${pos.z.toFixed(2)}\n\n(Cek Console F12 untuk copy)`)
+    } else {
+        console.warn("Mobil belum dimuat!")
+    }
+}
+
+// ==========================================
+// 6. CAR LOADING & ANIMATION SYSTEM
+// ==========================================
+
+function loadCar() {
+    console.log("🚗 Memuat Mobil Nissan GT-R...")
+    const carPath = './source/2018_nissan_gr.glb'
+
+    gltfLoader.load(carPath, (gltf) => {
+        carModel = gltf.scene
+        carModel.position.set(0, 0.5, 0)
+        carModel.rotation.y = Math.PI
+
+        // Reset arrays
+        carWheels = []
+        frontWheels = []
+
+        // Wheel Detection
+        const rodaFL = carModel.getObjectByName('Roda_depan_kiri')
+        const rodaFR = carModel.getObjectByName('Roda_depan_kanan')
+        const rodaRL = carModel.getObjectByName('Roda_belakang_kiri')
+        const rodaRR = carModel.getObjectByName('Roda_belakang_kanan')
+
+        // Front Wheels
+        if (rodaFL) {
+            carWheels.push(rodaFL)
+            frontWheels.push(rodaFL)
+        }
+        if (rodaFR) {
+            carWheels.push(rodaFR)
+            frontWheels.push(rodaFR)
+        }
+        // Rear Wheels
+        if (rodaRL) carWheels.push(rodaRL)
+        if (rodaRR) carWheels.push(rodaRR)
+
+        // Shadows
+        carModel.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true
+                child.receiveShadow = true
+            }
+        })
+
+        scene.add(carModel)
+        console.log("✅ Mobil berhasil dimuat!")
+    }, undefined, (err) => console.error("❌ Gagal load mobil:", err))
+}
+
+function updateCar() {
+    if (!carModel) return
+
+    // 1. Physics
+    if (carSettings.autoDrive) {
+        if (carSpeed < carSettings.maxSpeed * 0.5) carSpeed += carSettings.acceleration
+    } else {
+        if (keys.w) carSpeed += carSettings.acceleration
+        if (keys.s) carSpeed -= carSettings.acceleration
+    }
+    carSpeed *= carSettings.friction
+
+    // 2. Steering
+    let targetSteering = 0
+    if (Math.abs(carSpeed) > 0.01) {
+        if (keys.a) {
+            carModel.rotation.y += carSettings.turnSpeed
+            targetSteering = 0.5
+        }
+        if (keys.d) {
+            carModel.rotation.y -= carSettings.turnSpeed
+            targetSteering = -0.5
+        }
+    }
+
+    // Smooth Steering
+    steeringAngle += (targetSteering - steeringAngle) * 0.1
+
+    // 3. Movement
+    carModel.translateZ(carSpeed)
+
+    // 4. Ground Raycasting
+    if (currentMapModel) {
+        const rayOrigin = carModel.position.clone()
+        rayOrigin.y += 50
+        raycaster.set(rayOrigin, downVector)
+        const intersects = raycaster.intersectObject(currentMapModel, true)
+
+        if (intersects.length > 0) {
+            const groundHeight = intersects[0].point.y
+            carModel.position.y = groundHeight + 0.15
+        } else {
+            // carModel.position.y -= 0.5
+        }
+    }
+
+    // 5. Wheel Animation
+    carWheels.forEach(w => {
+        w.rotation.x += carSpeed * 10
+    })
+
+    frontWheels.forEach(w => {
+        w.rotation.order = 'YXZ'
+        w.rotation.y = steeringAngle
+    })
+
+    // 6. Camera Follow
+    if (carSettings.followCamera) {
+        const relativeCameraOffset = new THREE.Vector3(0, cameraConfig.height, -cameraConfig.distance)
+        const cameraOffset = relativeCameraOffset.applyMatrix4(carModel.matrixWorld)
+
+        // Camera Collision Logic
+        if (cameraConfig.collisionEnabled) {
+            const rayOrigin = carModel.position.clone()
+            rayOrigin.y += 5
+            const rayDirection = cameraOffset.clone().sub(rayOrigin).normalize()
+            const rayDistance = rayOrigin.distanceTo(cameraOffset)
+
+            raycaster.set(rayOrigin, rayDirection)
+            const intersects = currentMapModel ? raycaster.intersectObject(currentMapModel, true) : []
+
+            if (intersects.length > 0 && intersects[0].distance < rayDistance) {
+                cameraOffset.copy(intersects[0].point).add(rayDirection.clone().multiplyScalar(-cameraConfig.collisionOffset))
+            }
+        }
+
+        camera.position.lerp(cameraOffset, cameraConfig.damping)
+
+        const targetLook = carModel.position.clone()
+        targetLook.y += cameraConfig.lookAtY
+
+        camera.lookAt(targetLook)
+        camera.up.set(0, 1, 0)
+        controls.target.copy(targetLook)
+
+        if (camera.fov !== cameraConfig.fov) {
+            camera.fov = cameraConfig.fov
+            camera.updateProjectionMatrix()
+        }
+    }
+}
+
+// ==========================================
+// 7. CINEMATIC DIRECTOR SYSTEM (NEW)
+// ==========================================
+
+// --- A. CAMERA CUTS DATABASE ---
+// Tempat menyimpan preset posisi kamera untuk cinematics
+const CAM_CUTS = {
+    // Shot untuk American Underpass
+    'AU_Start': {
+        pos: new THREE.Vector3(0, 2, 10),
+        tgt: new THREE.Vector3(0, 0.5, 0),
+        roll: new THREE.Vector3(0, 1, 0)
+    },
+    'AU_Side': {
+        pos: new THREE.Vector3(5, 0.5, 0),
+        tgt: new THREE.Vector3(0, 0.5, 0),
+        roll: new THREE.Vector3(-0.2, 1, 0)
+    },
+    'AU_Top': {
+        pos: new THREE.Vector3(0, 20, 0),
+        tgt: new THREE.Vector3(0, 0, 5),
+        roll: new THREE.Vector3(0, 0, 1)
+    },
+    // Shot untuk Coast Road
+    'Coast_Intro': {
+        pos: new THREE.Vector3(50, 10, 50),
+        tgt: new THREE.Vector3(50, 5, 20),
+        roll: new THREE.Vector3(0, 1, 0)
+    },
+    'Coast_Wheel': {
+        pos: new THREE.Vector3(52, 1, 22),
+        tgt: new THREE.Vector3(50, 0.5, 20),
+        roll: new THREE.Vector3(0, 1, 0)
+    }
+};
+
+// --- B. DIRECTOR ENGINE ---
+// Mesin utama yang mengatur play/stop dan update sequence
+const Director = {
+    active: false,
+    currentCut: null,
+    startTime: 0,
+    scenarioUpdate: null,
+
+    playScenario: function(scenarioFunc) {
+        this.active = true;
+        this.startTime = clock.getElapsedTime();
+        controls.enabled = false;
+        // Matikan follow camera agar Director memegang kendali
+        carSettings.followCamera = false; 
+        
+        this.scenarioUpdate = scenarioFunc; 
+        console.log("🎬 Action! Scenario Started.");
+    },
+
+    cutTo: function(cutName) {
+        const data = CAM_CUTS[cutName];
+        if (!data) return;
+
+        this.currentCut = cutName;
+        this.startTime = clock.getElapsedTime(); // Reset timer lokal shot
+
+        camera.position.copy(data.pos);
+        controls.target.copy(data.tgt);
+        if (data.roll) camera.up.copy(data.roll);
+        else camera.up.set(0, 1, 0);
+        
+        camera.lookAt(controls.target);
+    },
+
+    stop: function() {
+        this.active = false;
+        this.scenarioUpdate = null;
+        this.currentCut = null;
+        
+        controls.enabled = true;
+        camera.up.set(0, 1, 0);
+        // Kembalikan ke follow camera
+        carSettings.followCamera = true;
+        carSettings.autoDrive = false;
+        
+        console.log("🎬 Cut! Back to Gameplay.");
+    },
+
+    update: function(delta) {
+        if (!this.active || !this.scenarioUpdate) return;
+        
+        // Waktu sejak shot terakhir dimulai
+        const timeInShot = clock.getElapsedTime() - this.startTime;
+        const totalTime = clock.getElapsedTime();
+
+        this.scenarioUpdate(delta, timeInShot, totalTime);
+        
+        camera.lookAt(controls.target);
+    }
+};
+
+// ==========================================
+// 8. MAP SYSTEM (SCENE FUNCTIONS)
+// ==========================================
+
+// Global variable untuk reset spawn logic
+let currentSpawnInfo = { x: 0, y: 2, z: 0, rot: 0 };
+
+// --- CORE LOADER HELPER ---
+function coreLoadMap(fileName, onMapLoaded) {
+    const loadingDiv = document.getElementById('loading');
+    if (loadingDiv) {
+        loadingDiv.style.display = 'flex';
+        loadingDiv.innerHTML = '<div class="spinner"></div><span>Memuat Scene...</span>';
+    }
+
+    if (currentMapModel) {
+        scene.remove(currentMapModel);
+        currentMapModel.traverse((child) => {
+            if (child.isMesh) {
+                if(child.material) child.material.dispose();
+                if(child.geometry) child.geometry.dispose();
+            }
+        });
+        currentMapModel = null;
+    }
+
+    // Stop previous cinematic if running
+    Director.stop();
+
+    if (fileName === 'test') {
+        createTestModel();
+        if (loadingDiv) loadingDiv.style.display = 'none';
+        if (onMapLoaded) onMapLoaded();
+        return;
+    }
+
+    const path = `./env/${fileName}`;
+    gltfLoader.load(path, (gltf) => {
+        currentMapModel = gltf.scene;
+        currentMapModel.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+        scene.add(currentMapModel);
+        
+        if (loadingDiv) loadingDiv.style.display = 'none';
+        if (onMapLoaded) onMapLoaded();
+        
+        console.log(`✅ Map ${fileName} loaded!`);
+    }, undefined, (err) => {
+        console.error("Gagal load map:", err);
+        if (loadingDiv) loadingDiv.style.display = 'none';
+    });
+}
+
+function setSpawn(x, y, z, rotationY = 0) {
+    if (carModel) {
+        carModel.position.set(x, y, z);
+        carModel.rotation.y = rotationY;
+        carSpeed = 0;
+        steeringAngle = 0;
+        currentSpawnInfo = { x, y, z, rot: rotationY };
+        updateCar();
+    }
+}
+
+// --- SCENE SCENARIOS (LOGIC PER MAP) ---
+
+function scene_AmericanUnderpass() {
+    console.log("🎬 Map: American Underpass");
+    coreLoadMap('american_road_underpass_bridge.glb', () => {
+        setSpawn(0, 10, 0, Math.PI);
+        lightingThemes.daylight();
+
+        // LOGIKA CINEMATIC MAP INI
+        Director.playScenario((delta, timeInShot) => {
+            
+            // 1. START: Shot Belakang
+            if (Director.currentCut === null) {
+                Director.cutTo('AU_Start');
+                carSettings.autoDrive = true;
+                carSettings.maxSpeed = 0.5;
+            }
+
+            if (Director.currentCut === 'AU_Start') {
+                camera.position.z += 1.5 * delta; // Efek dolly out
+                if (timeInShot > 4.0) Director.cutTo('AU_Side');
+            }
+
+            // 2. Shot Samping
+            else if (Director.currentCut === 'AU_Side') {
+                if (carModel) {
+                    // Kamera tracking samping
+                    camera.position.x = carModel.position.x + 5;
+                    camera.position.z = carModel.position.z;
+                    controls.target.copy(carModel.position);
+                }
+                if (timeInShot > 4.0) Director.cutTo('AU_Top');
+            }
+
+            // 3. Shot Atas (Ending)
+            else if (Director.currentCut === 'AU_Top') {
+                carSettings.maxSpeed = 2.0; // Ngebut
+                if (timeInShot > 4.0) Director.stop(); // Selesai
+            }
+        });
+    });
+}
+
+function scene_AmericanCurve() {
+    console.log("🎬 Map: American Curve");
+    coreLoadMap('american_road_curve_ahead.glb', () => {
+        setSpawn(0, 0.5, 0, 0); // Default spawn
+        lightingThemes.daylight();
+        
+        // Setup Basic Cinematic
+        Director.playScenario((delta, timeInShot) => {
+            if (Director.currentCut === null) {
+                // Gunakan preset kamera cinematic default jika belum ada cut khusus
+                camPresets.cinematic();
+                Director.currentCut = 'Intro'; 
+            }
+            // Intro 3 detik lalu main
+            if (timeInShot > 3.0) Director.stop();
+        });
+    });
+}
+
+function scene_CoastRoadAndRocks() {
+    console.log("🎬 Map: Coast Road");
+    coreLoadMap('coast_road_and_rocks_ver2.0.glb', () => {
+        setSpawn(-55, 13, 43.5, Math.PI / 2);
+        lightingThemes.sunset();
+
+        Director.playScenario((delta, timeInShot) => {
+            if (Director.currentCut === null) Director.cutTo('Coast_Intro');
+
+            if (Director.currentCut === 'Coast_Intro') {
+                controls.target.x += 2 * delta; // Panning
+                if (timeInShot > 5) Director.cutTo('Coast_Wheel');
+            }
+
+            if (Director.currentCut === 'Coast_Wheel') {
+                if (timeInShot > 3) {
+                    Director.stop();
+                    camPresets.driverView(); // Ganti ke view supir
+                }
+            }
+        });
+    });
+}
+
+function scene_CoastTunnel() {
+    console.log("🎬 Map: Coast Tunnel");
+    coreLoadMap('coast_road_tunnel_and_rock.glb', () => {
+        setSpawn(0, 2, 0, 0); 
+        lightingThemes.sunset(); // Tunnel biasanya bagus agak gelap/sore
+    });
+}
+
+function scene_HokkaidoSnow() {
+    console.log("🎬 Map: Hokkaido Snowfield");
+    coreLoadMap('hokkaido_snowfield_mountain_road_and_forest.glb', () => {
+        setSpawn(0, 2, 0, 0);
+        lightingThemes.foggy(); // Tema salju
+    });
+}
+
+function scene_MountainRoad() {
+    console.log("🎬 Map: Mountain Road");
+    coreLoadMap('mountain_road_scene.glb', () => {
+        setSpawn(0, 2, 0, 0);
+        lightingThemes.daylight();
+    });
+}
+
+function scene_ReefCoast() {
+    console.log("🎬 Map: Reef & Coastal");
+    coreLoadMap('reef_and_coastal_road.glb', () => {
+        setSpawn(0, 5, 0, 0);
+        lightingThemes.clear(); // Laut cerah
+    });
+}
+
+function scene_Highway() {
+    console.log("🎬 Map: Highway");
+    coreLoadMap('road__highway.glb', () => {
+        setSpawn(0, 0.5, 0, 0);
+        lightingThemes.daylight();
+    });
+}
+
+function scene_Mestia() {
+    console.log("🎬 Map: Road to Mestia");
+    coreLoadMap('road_to_mestia_svaneti.glb', () => {
+        setSpawn(0, 2, 0, 0);
+        lightingThemes.foggy(); // Pegunungan berkabut
+    });
+}
+
+function scene_TreesRoad() {
+    console.log("🎬 Map: Road with Trees");
+    coreLoadMap('road_with_trees.glb', () => {
+        setSpawn(0, 0.5, 0, 0);
+        lightingThemes.sunset(); // Bagus untuk efek cahaya sela pohon
+    });
+}
+
+function scene_TunnelRoad() {
+    console.log("🎬 Map: Tunnel Road");
+    coreLoadMap('tunnel_road.glb', () => {
+        setSpawn(0, 1, 0, 0);
+        lightingThemes.night(); // Tunnel harus gelap
+        // Nyalakan lampu mobil otomatis jika fitur ada
+    });
+}
+
+function scene_TestMode() {
+    coreLoadMap('test', () => {
+        setSpawn(0, 2, 0, 0);
+        lightingThemes.daylight();
+        // Tidak ada cinematic, langsung main
+    });
+}
+
+// --- REGISTRY  MAP---
+const sceneRegistry = {
+    'American Underpass': scene_AmericanUnderpass,
+    'American Curve': scene_AmericanCurve,
+    'Coast Road & Rocks': scene_CoastRoadAndRocks,
+    'Coast Tunnel': scene_CoastTunnel,
+    'Hokkaido Snowfield': scene_HokkaidoSnow,
+    'Mountain Road': scene_MountainRoad,
+    'Reef & Coastal': scene_ReefCoast,
+    'Highway': scene_Highway,
+    'Road to Mestia': scene_Mestia,
+    'Road with Trees': scene_TreesRoad,
+    'Tunnel Road': scene_TunnelRoad,
+    'Test Mode (Debug)': scene_TestMode
+};
+
+function loadMap(mapName) {
+    const func = sceneRegistry[mapName];
+    if (func) func();
+    else console.error("Scene not found:", mapName);
+}
+
+// ==========================================
+// 9. UTILS (CREATE TEST MODEL & AUTO SCALE)
+// ==========================================
+
+function createTestModel() {
+    console.log("📦 Membuat test model...")
+    const testModel = new THREE.Group()
+
+    // Road
+    const roadGeometry = new THREE.PlaneGeometry(40, 300)
+    const roadMaterial = new THREE.MeshStandardMaterial({
+        color: 0x333333, roughness: 0.8, metalness: 0.2
+    })
+    const road = new THREE.Mesh(roadGeometry, roadMaterial)
+    road.rotation.x = -Math.PI / 2
+    road.receiveShadow = true
+    testModel.add(road)
+
+    // Markings
+    const lineGeometry = new THREE.PlaneGeometry(0.5, 300)
+    const lineMaterial = new THREE.MeshStandardMaterial({ color: 0xffff00 })
+    const line = new THREE.Mesh(lineGeometry, lineMaterial)
+    line.rotation.x = -Math.PI / 2
+    line.position.y = 0.01
+    testModel.add(line)
+
+    // Grid
+    const gridHelper = new THREE.GridHelper(300, 60, 0x888888, 0x444444)
+    gridHelper.position.y = 0.01
+    testModel.add(gridHelper)
+
+    currentMapModel = testModel
+    scene.add(currentMapModel)
+}
+
+function autoScaleCarForMap() {
+    if (!carModel || !currentMapModel) return
+    // (Logic auto scale sederhana untuk demo)
+    console.log("Scale logic running...");
+}
+
+// ==========================================
+// 10. CAMERA CONFIGURATION SYSTEM
+// ==========================================
+
+const cameraConfig = {
+    distance: 12, height: 6, lookAtY: 0,
+    fov: 60, damping: 0.1,
+    collisionEnabled: true, collisionOffset: 2,
+    minDistance: 2, maxDistance: 100,
+    minPolarAngle: 0, maxPolarAngle: Math.PI,
+    enablePan: true, enableRotate: true, enableZoom: true
+}
+
+function updateOrbitControls() {
+    controls.minDistance = cameraConfig.minDistance
+    controls.maxDistance = cameraConfig.maxDistance
+    controls.minPolarAngle = cameraConfig.minPolarAngle
+    controls.maxPolarAngle = cameraConfig.maxPolarAngle
+    controls.enablePan = cameraConfig.enablePan
+    controls.enableRotate = cameraConfig.enableRotate
+    controls.enableZoom = cameraConfig.enableZoom
+}
+updateOrbitControls()
+
+// ==========================================
+// 11. LIGHTING CONFIGURATION SYSTEM
+// ==========================================
+
+const lightingConfig = {
+    ambientIntensity: 1.0, ambientColor: '#ffffff',
+    dirIntensity: 2.0, dirColor: '#ffffff',
+    dirPositionX: 50, dirPositionY: 100, dirPositionZ: 50,
+    hemisphereIntensity: 0.5, skyColor: '#87CEEB', groundColor: '#8B4513',
+    spotIntensity: 1.0, spotColor: '#ffffff',
+    spotDistance: 200, spotAngle: 30, spotPenumbra: 0.5, spotDecay: 2,
+    pointIntensity: 0.5, pointColor: '#ff6600', pointDistance: 50,
+    shadowEnabled: true, shadowMapSize: 2048, shadowBias: -0.0001, shadowRadius: 1,
+    theme: 'daylight'
+}
+
+function updateLighting() {
+    ambientLight.intensity = lightingConfig.ambientIntensity
+    ambientLight.color.set(lightingConfig.ambientColor)
+    dirLight.intensity = lightingConfig.dirIntensity
+    dirLight.color.set(lightingConfig.dirColor)
+    dirLight.position.set(lightingConfig.dirPositionX, lightingConfig.dirPositionY, lightingConfig.dirPositionZ)
+    hemisphereLight.intensity = lightingConfig.hemisphereIntensity
+    hemisphereLight.color.set(lightingConfig.skyColor)
+    hemisphereLight.groundColor.set(lightingConfig.groundColor)
+    spotLight.intensity = lightingConfig.spotIntensity
+    spotLight.color.set(lightingConfig.spotColor)
+    spotLight.distance = lightingConfig.spotDistance
+    spotLight.angle = THREE.MathUtils.degToRad(lightingConfig.spotAngle)
+    spotLight.penumbra = lightingConfig.spotPenumbra
+    spotLight.decay = lightingConfig.spotDecay
+    pointLight.intensity = lightingConfig.pointIntensity
+    pointLight.color.set(lightingConfig.pointColor)
+    pointLight.distance = lightingConfig.pointDistance
+    dirLight.castShadow = lightingConfig.shadowEnabled
+    spotLight.castShadow = lightingConfig.shadowEnabled
+    renderer.shadowMap.enabled = lightingConfig.shadowEnabled
+}
+updateLighting()
+
+// Themes
+const lightingThemes = {
+    daylight: () => {
+        lightingConfig.ambientIntensity = 1.0; lightingConfig.dirIntensity = 2.0;
+        lightingConfig.skyColor = '#87CEEB'; scene.background = new THREE.Color(0x87CEEB);
+        if (scene.fog) scene.fog = null; updateLighting();
+    },
+    sunset: () => {
+        lightingConfig.ambientIntensity = 0.8; lightingConfig.ambientColor = '#ffcc99';
+        lightingConfig.dirIntensity = 1.5; lightingConfig.dirColor = '#ff6600';
+        lightingConfig.skyColor = '#ff9966'; scene.background = new THREE.Color(0xff9966);
+        if (scene.fog) scene.fog = null; updateLighting();
+    },
+    night: () => {
+        lightingConfig.ambientIntensity = 0.2; lightingConfig.ambientColor = '#333366';
+        lightingConfig.dirIntensity = 0.3; lightingConfig.skyColor = '#000033';
+        scene.background = new THREE.Color(0x000033);
+        if (scene.fog) scene.fog = null; updateLighting();
+    },
+    foggy: () => {
+        lightingConfig.ambientIntensity = 0.6; lightingConfig.dirIntensity = 0.8;
+        scene.fog = new THREE.Fog(0xaaaaaa, 10, 100); scene.background = new THREE.Color(0xaaaaaa);
+        updateLighting();
+    },
+    clear: () => { scene.fog = null; lightingThemes.daylight(); }
+}
+
+// ==========================================
+// 12. GUI CONTROL PANEL
+// ==========================================
+
+const gui = new GUI({ title: "🎬 DIRECTOR SETTINGS", width: 380 })
+
+// Map Selector (UPDATED)
+const mapFolder = gui.addFolder('🗺️ Map Selector')
+const mapControls = {
+    selectedMap: 'Test Mode (Debug)',
+    loadMap: function() { loadMap(this.selectedMap) }
+}
+// Menggunakan keys dari sceneRegistry agar dinamis
+mapFolder.add(mapControls, 'selectedMap', Object.keys(sceneRegistry)).onChange(() => mapControls.loadMap())
+mapFolder.add(mapControls, 'loadMap').name('🔄 Load Map Sekarang')
+mapFolder.open()
+
+// Car Controls
+const carFolder = gui.addFolder('🏎️ Car Control')
+carFolder.add(carSettings, 'followCamera').name('🎥 Camera Follow')
+carFolder.add(carSettings, 'autoDrive').name('🤖 Auto Pilot')
+carFolder.add(carSettings, 'maxSpeed', 0.1, 3.0).name('🚀 Max Speed').step(0.1)
+carFolder.add(carSettings, 'turnSpeed', 0.01, 0.1).name('🔄 Turn Speed').step(0.01)
+carFolder.add({ getCoords: checkCoordinates }, 'getCoords').name('📍 Cek Koordinat (P)')
+
+// Scale
+const scaleParams = { size: 1, autoScale: true, lastAutoScale: 1 }
+carFolder.add(scaleParams, 'size', 0.1, 20).name('📏 Manual Scale').step(0.1).onChange((val) => {
+    if (carModel && !scaleParams.autoScale) carModel.scale.set(val, val, val)
+})
+carFolder.add(scaleParams, 'autoScale').name('⚡ Auto Scale')
+
+// Reset Car (UPDATED)
+carFolder.add({
+    resetCar: () => {
+        if (carModel) {
+            carModel.position.set(currentSpawnInfo.x, currentSpawnInfo.y, currentSpawnInfo.z)
+            carModel.rotation.set(0, currentSpawnInfo.rot, 0)
+            carSpeed = 0
+            steeringAngle = 0
+            if (scaleParams.autoScale && currentMapModel) setTimeout(() => autoScaleCarForMap(), 100)
+        }
+    }
+}, 'resetCar').name('🔄 Reset Car Position')
+carFolder.open()
+
+// Camera Presets
+const camPresets = {
+    default: () => { cameraConfig.distance = 12; cameraConfig.height = 6; cameraConfig.fov = 60; cameraConfig.lookAtY = 0; },
+    topDown: () => { cameraConfig.distance = 1; cameraConfig.height = 30; cameraConfig.fov = 60; cameraConfig.lookAtY = -10; },
+    racing: () => { cameraConfig.distance = 6; cameraConfig.height = 2; cameraConfig.fov = 80; cameraConfig.lookAtY = 1; },
+    cinematic: () => { cameraConfig.distance = 20; cameraConfig.height = 3; cameraConfig.fov = 40; cameraConfig.lookAtY = 0; },
+    driverView: () => { cameraConfig.distance = 3; cameraConfig.height = 1.5; cameraConfig.fov = 70; cameraConfig.lookAtY = 1; }
+}
+
+const camFolder = gui.addFolder('🎥 Camera Director')
+const presetFolder = camFolder.addFolder('📸 Camera Presets')
+presetFolder.add(camPresets, 'default').name('🎯 Normal View')
+presetFolder.add(camPresets, 'topDown').name('🛰️ Top Down')
+presetFolder.add(camPresets, 'racing').name('🏁 Racing')
+presetFolder.add(camPresets, 'cinematic').name('🎬 Cinematic')
+presetFolder.add(camPresets, 'driverView').name('👨‍✈️ Driver View')
+
+const followCamFolder = camFolder.addFolder('📡 Follow Camera')
+followCamFolder.add(carSettings, 'followCamera').name('Enabled')
+followCamFolder.add(cameraConfig, 'distance', 2, 50).name('Distance').step(1)
+followCamFolder.add(cameraConfig, 'height', 1, 30).name('Height').step(1)
+camFolder.open()
+
+// Lighting
+const lightFolder = gui.addFolder('💡 Lighting System')
+const themeFolder = lightFolder.addFolder('🎨 Lighting Themes')
+themeFolder.add({ theme: 'daylight' }, 'theme', ['daylight', 'sunset', 'night', 'foggy', 'clear'])
+    .name('Select Theme').onChange((val) => lightingThemes[val]())
+
+// ==========================================
+// 13. INITIALIZATION & ANIMATION LOOP
+// ==========================================
+
+loadCar()
+
+// Auto-start
+setTimeout(() => {
+    loadMap('Test Mode (Debug)')
+    console.log("✅ Sistem siap. Gunakan WASD.")
+}, 100)
+
+let lastTime = 0
+const targetFPS = 60
+const frameInterval = 1000 / targetFPS
+
+function animate(currentTime) {
+    requestAnimationFrame(animate)
+
+    const deltaTime = currentTime - lastTime
+    if (deltaTime < frameInterval) return
+    lastTime = currentTime - (deltaTime % frameInterval)
+    const deltaSeconds = deltaTime / 1000;
+
+    // 1. Update Mobil
+    updateCar()
+
+    // 2. Director System Update (Cinematics)
+    if (Director.active) {
+        Director.update(deltaSeconds)
+    } 
+    // 3. Normal Controls Update
+    else if (!carSettings.followCamera) {
+        controls.update()
+    }
+
+    // Update Lighting Anim
+    if (lightingConfig.environmentRotation !== 0) {
+        const time = clock.getElapsedTime()
+        hemisphereLight.position.x = Math.sin(time * 0.1) * 100
+        hemisphereLight.position.z = Math.cos(time * 0.1) * 100
+    }
+
+    renderer.render(scene, camera)
+}
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight
+    camera.updateProjectionMatrix()
+    renderer.setSize(window.innerWidth, window.innerHeight)
+})
+
+animate(0)
+
+// Helper HTML Loading
+const loadingDiv = document.createElement('div')
+loadingDiv.id = 'loading'
+loadingDiv.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #000; color: #fff; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; z-index: 9999;
+`
+loadingDiv.innerHTML = '<span>Memuat Engine...</span>'
+document.body.appendChild(loadingDiv)
+
+setTimeout(() => {
+    if (loadingDiv) loadingDiv.style.display = 'none'
+}, 3000)
