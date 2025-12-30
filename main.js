@@ -243,7 +243,7 @@ function updateCar() {
 
         if (intersects.length > 0) {
             const groundHeight = intersects[0].point.y
-            carModel.position.y = groundHeight + 0.15
+            carModel.position.y = groundHeight
         } else {
             // carModel.position.y -= 0.5
         }
@@ -613,7 +613,7 @@ function scene_TunnelRoad() {
 
 function scene_TestMode() {
     coreLoadMap('test', () => {
-        setSpawn(0, 2, 0, 0);
+        setSpawn(0, 0, 0, 0);
         lightingThemes.daylight();
         // Tidak ada cinematic, langsung main
     });
@@ -907,7 +907,7 @@ const loadingDiv = document.createElement('div')
 loadingDiv.id = 'loading'
 loadingDiv.style.cssText = `
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: #000; color: #fff; display: flex; flex-direction: column;
+    background: #transparent; color: #fff; display: flex; flex-direction: column;
     align-items: center; justify-content: center; z-index: 9999;
 `
 loadingDiv.innerHTML = '<span>Memuat Engine...</span>'
