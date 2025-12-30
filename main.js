@@ -334,11 +334,65 @@ const CAM_CUTS = {
 // --- B. DIRECTOR ENGINE ---
 // Mesin utama yang mengatur play/stop dan update sequence
 const Director = {
-    active: false,
+active: false,
     currentCut: null,
     startTime: 0,
     scenarioUpdate: null,
+    pendingScenario: null,
 
+    loadScenario: function(scenarioFunc) {
+        this.stop(); 
+        this.pendingScenario = scenarioFunc; 
+        console.log("🎬 Skenario siap. Klik 'Play Cinematic' untuk mulai.");
+    },
+
+    play: function() {
+        if (!this.pendingScenario) {
+            alert("Map ini tidak memiliki skenario film khusus.");
+            return;
+        }
+        
+        this.active = true;
+        this.startTime = clock.getElapsedTime();
+        controls.enabled = false;
+        carSettings.followCamera = false; 
+        this.scenarioUpdate = this.pendingScenario;
+        this.currentCut = null;
+        console.log("🎬 Action! Scenario Started.");
+    },
+
+    cutTo: function(cutName) {
+        const data = CAM_CUTS[cutName];
+        if (!data) return;
+        this.currentCut = cutName;
+        this.startTime = clock.getElapsedTime();
+        camera.position.copy(data.pos);
+        controls.target.copy(data.tgt);
+        if (data.roll) camera.up.copy(data.roll);
+        else camera.up.set(0, 1, 0);
+        camera.lookAt(controls.target);
+    },
+
+    stop: function() {
+        this.active = false;
+        this.scenarioUpdate = null;
+        this.currentCut = null;
+        
+        // Kembalikan kontrol ke manual
+        controls.enabled = true;
+        camera.up.set(0, 1, 0);
+        carSettings.followCamera = true;
+        carSettings.autoDrive = false;
+        console.log("🎬 Cut! Manual Control.");
+    },
+
+    update: function(delta) {
+        if (!this.active || !this.scenarioUpdate) return;
+        const timeInShot = clock.getElapsedTime() - this.startTime;
+        const totalTime = clock.getElapsedTime();
+        this.scenarioUpdate(delta, timeInShot, totalTime);
+        camera.lookAt(controls.target);
+    },
     playScenario: function(scenarioFunc) {
         this.active = true;
         this.startTime = clock.getElapsedTime();
@@ -350,46 +404,6 @@ const Director = {
         console.log("🎬 Action! Scenario Started.");
     },
 
-    cutTo: function(cutName) {
-        const data = CAM_CUTS[cutName];
-        if (!data) return;
-
-        this.currentCut = cutName;
-        this.startTime = clock.getElapsedTime(); // Reset timer lokal shot
-
-        camera.position.copy(data.pos);
-        controls.target.copy(data.tgt);
-        if (data.roll) camera.up.copy(data.roll);
-        else camera.up.set(0, 1, 0);
-        
-        camera.lookAt(controls.target);
-    },
-
-    stop: function() {
-        this.active = false;
-        this.scenarioUpdate = null;
-        this.currentCut = null;
-        
-        controls.enabled = true;
-        camera.up.set(0, 1, 0);
-        // Kembalikan ke follow camera
-        carSettings.followCamera = true;
-        carSettings.autoDrive = false;
-        
-        console.log("🎬 Cut! Back to Gameplay.");
-    },
-
-    update: function(delta) {
-        if (!this.active || !this.scenarioUpdate) return;
-        
-        // Waktu sejak shot terakhir dimulai
-        const timeInShot = clock.getElapsedTime() - this.startTime;
-        const totalTime = clock.getElapsedTime();
-
-        this.scenarioUpdate(delta, timeInShot, totalTime);
-        
-        camera.lookAt(controls.target);
-    }
 };
 
 // ==========================================
@@ -420,6 +434,7 @@ function coreLoadMap(fileName, onMapLoaded) {
 
     // Stop previous cinematic if running
     Director.stop();
+    Director.pendingScenario = null;
 
     if (fileName === 'test') {
         createTestModel();
@@ -465,11 +480,19 @@ function setSpawn(x, y, z, rotationY = 0) {
 function scene_AmericanUnderpass() {
     console.log("🎬 Map: American Underpass");
     coreLoadMap('american_road_underpass_bridge.glb', () => {
-        setSpawn(0, 10, 0, Math.PI);
+        setSpawn(-1124, -15, -94, Math.PI/2);
         lightingThemes.daylight();
 
+        scaleParams.autoScale = false; 
+        
+        // Coba angka ini (misal 1.5), ubah sesuai selera sampai pas
+        if (carModel) carModel.scale.set(1.5, 1.5, 1.5); 
+        
+        // Update slider GUI agar sinkron
+        if (scaleParams) scaleParams.size = 1.5;
+
         // LOGIKA CINEMATIC MAP INI
-        Director.playScenario((delta, timeInShot) => {
+        Director.loadScenario((delta, timeInShot) => {
             
             // 1. START: Shot Belakang
             if (Director.currentCut === null) {
@@ -510,7 +533,7 @@ function scene_AmericanCurve() {
         lightingThemes.daylight();
         
         // Setup Basic Cinematic
-        Director.playScenario((delta, timeInShot) => {
+        Director.loadScenario((delta, timeInShot) => {
             if (Director.currentCut === null) {
                 // Gunakan preset kamera cinematic default jika belum ada cut khusus
                 camPresets.cinematic();
@@ -528,7 +551,7 @@ function scene_CoastRoadAndRocks() {
         setSpawn(-55, 13, 43.5, Math.PI / 2);
         lightingThemes.sunset();
 
-        Director.playScenario((delta, timeInShot) => {
+        Director.loadScenario((delta, timeInShot) => {
             if (Director.currentCut === null) Director.cutTo('Coast_Intro');
 
             if (Director.currentCut === 'Coast_Intro') {
@@ -676,10 +699,89 @@ function createTestModel() {
     scene.add(currentMapModel)
 }
 
+function detectRoadWidth() {
+    if (!carModel || !currentMapModel) return 0
+
+    const samplePoints = 5
+    let totalWidth = 0
+    let validSamples = 0
+
+    for (let i = 0; i < samplePoints; i++) {
+        // Ambil sampel di depan/belakang mobil
+        const offsetZ = i * 2 - (samplePoints * 2) / 2
+        const samplePos = carModel.position.clone()
+        samplePos.z += offsetZ
+
+        // Deteksi Sisi Kiri
+        const leftRayOrigin = samplePos.clone()
+        leftRayOrigin.x -= 50 // Mulai dari jauh di kiri
+        leftRayOrigin.y += 20
+
+        // Kita scan area bawah
+        raycaster.set(leftRayOrigin, downVector)
+        // Cari titik temu pertama dengan map
+        const leftIntersects = raycaster.intersectObject(currentMapModel, true)
+
+        // Deteksi Sisi Kanan
+        const rightRayOrigin = samplePos.clone()
+        rightRayOrigin.x += 50 // Mulai dari jauh di kanan
+        rightRayOrigin.y += 20
+
+        raycaster.set(rightRayOrigin, downVector)
+        const rightIntersects = raycaster.intersectObject(currentMapModel, true)
+
+        // Jika dua-duanya kena tanah/jalan
+        if (leftIntersects.length > 0 && rightIntersects.length > 0) {
+            const leftPoint = leftIntersects[0].point
+            const rightPoint = rightIntersects[0].point
+            
+            // Hitung jarak (Lebar jalan perkiraan)
+            // Note: Ini logika sederhana, mengasumsikan map di bawah mobil adalah jalan
+            const width = Math.abs(leftPoint.x - rightPoint.x)
+
+            // Filter hasil yang aneh (misal terlalu lebar > 100m)
+            if (width < 50) { 
+                totalWidth += width
+                validSamples++
+            }
+        }
+    }
+
+    return validSamples > 0 ? totalWidth / validSamples : 0
+}
+
 function autoScaleCarForMap() {
     if (!carModel || !currentMapModel) return
-    // (Logic auto scale sederhana untuk demo)
-    console.log("Scale logic running...");
+
+    console.log("📏 Auto-scaling mobil untuk map...")
+
+    const roadWidth = detectRoadWidth()
+    
+    // Default fallback jika gagal deteksi
+    let finalScale = 1.0; 
+
+    if (roadWidth > 0) {
+        const optimalCarWidth = 2.0 // Lebar mobil rata-rata
+        const optimalRoadWidth = 4.0 // Lebar jalur standar
+        
+        // Rumus: Sesuaikan ukuran mobil berdasarkan rasio lebar jalan yang terdeteksi
+        // Faktor 1.2 adalah adjustment agar mobil tidak terlalu kecil
+        const scaleFactor = (roadWidth / optimalRoadWidth) * 0.8 
+
+        const minScale = 0.3
+        const maxScale = 3.0
+        finalScale = THREE.MathUtils.clamp(scaleFactor, minScale, maxScale)
+
+        console.log(`✅ Deteksi Jalan: ${roadWidth.toFixed(2)}m -> Scale: ${finalScale.toFixed(2)}x`)
+    } else {
+        console.warn("⚠️ Gagal deteksi lebar jalan, menggunakan scale default.");
+    }
+
+    // Terapkan Scale
+    carModel.scale.set(finalScale, finalScale, finalScale)
+    
+    // Update GUI agar slider ikut berubah
+    if (scaleParams) scaleParams.size = finalScale;
 }
 
 // ==========================================
@@ -829,6 +931,10 @@ const camPresets = {
 }
 
 const camFolder = gui.addFolder('🎥 Camera Director')
+const directorFolder = camFolder.addFolder('🎬 Action')
+directorFolder.add(Director, 'play').name('▶ Play Cinematic')
+directorFolder.add(Director, 'stop').name('⏹ Stop / Manual')
+directorFolder.open()
 const presetFolder = camFolder.addFolder('📸 Camera Presets')
 presetFolder.add(camPresets, 'default').name('🎯 Normal View')
 presetFolder.add(camPresets, 'topDown').name('🛰️ Top Down')
