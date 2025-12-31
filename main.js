@@ -100,6 +100,7 @@ scene.add(cameraTarget)
 let carModel = null
 let carWheels = []
 let frontWheels = []
+let pivotFL, pivotFR
 let carSpeed = 0
 let steeringAngle = 0
 const raycaster = new THREE.Raycaster()
@@ -157,40 +158,83 @@ function checkCoordinates() {
 // ==========================================
 // 6. CAR LOADING & ANIMATION SYSTEM
 // ==========================================
-
 function loadCar() {
-    console.log("🚗 Memuat Mobil Nissan GT-R...")
+    console.log("🚗 Memuat Mobil Nissan GT-R (Smart Offset)...")
     const carPath = './source/2018_nissan_gr.glb'
 
     gltfLoader.load(carPath, (gltf) => {
         carModel = gltf.scene
-        carModel.position.set(0, 0.5, 0)
-        carModel.rotation.y = Math.PI
+        
+        // --- A. POSISI & ORIENTASI ---
+        carModel.position.set(0, 0, 0)
+        carModel.rotation.y = 0  // Menghadap depan
+        
+        // Update Matrix agar posisi wheel & brake akurat saat diambil nanti
+        carModel.updateMatrixWorld(true) 
 
-        // Reset arrays
+        // Reset variable container
         carWheels = []
-        frontWheels = []
+        pivotFL = null
+        pivotFR = null
 
-        // Wheel Detection
-        const rodaFL = carModel.getObjectByName('Roda_depan_kiri')
-        const rodaFR = carModel.getObjectByName('Roda_depan_kanan')
+        // --- B. FUNGSI PEMBANTU: SETUP SMART OFFSET ---
+        // Fungsi ini kita taruh di dalam agar mudah akses carModel
+        const setupFrontSystem = (wheelName, brakeName) => {
+            const wheelMesh = carModel.getObjectByName(wheelName)
+            const brakeMesh = carModel.getObjectByName(brakeName)
+
+            if (wheelMesh && brakeMesh) {
+                const pivot = new THREE.Group()
+                
+                // 1. Ambil posisi aslinya di dunia 3D
+                const wheelPos = wheelMesh.position.clone()
+                const brakePos = brakeMesh.position.clone()
+
+                // 2. HITUNG JARAK (OFFSET) OTOMATIS
+                // Rumus: Posisi Kaliper - Posisi Roda
+                // Ini menjaga agar kaliper tetap di tempat aslinya, tidak ketarik ke tengah
+                const offset = new THREE.Vector3().subVectors(brakePos, wheelPos)
+                
+                // 3. Pindahkan Pivot ke posisi roda
+                pivot.position.copy(wheelPos)
+                
+                // 4. Attach Pivot ke Mobil
+                carModel.add(pivot)
+                
+                // 5. Masukkan Roda & Rem ke dalam Pivot
+                pivot.add(wheelMesh)
+                pivot.add(brakeMesh)
+                
+                // 6. Reset Posisi (FINAL FIX)
+                wheelMesh.position.set(0, 0, 0) // Roda pas di tengah as
+                brakeMesh.position.copy(offset) // Kaliper ditaruh sesuai jarak aslinya
+                
+                // 7. Masukkan Roda ke array putar
+                carWheels.push(wheelMesh)
+                
+                return pivot // Kembalikan pivot untuk kontrol steering
+            } else {
+                console.error(`❌ Part tidak ditemukan: ${wheelName} atau ${brakeName}`)
+                return null
+            }
+        }
+
+        // --- C. EKSEKUSI SETUP ---
+        // Setup Roda Depan (Pakai Pivot & Smart Offset)
+        pivotFL = setupFrontSystem('Roda_depan_kiri', 'Rem_depan_kiri')
+        pivotFR = setupFrontSystem('Roda_depan_kanan', 'Rem_depan_kanan')
+
+        // Setup Roda Belakang (Cukup ambil mesh untuk putar)
         const rodaRL = carModel.getObjectByName('Roda_belakang_kiri')
         const rodaRR = carModel.getObjectByName('Roda_belakang_kanan')
-
-        // Front Wheels
-        if (rodaFL) {
-            carWheels.push(rodaFL)
-            frontWheels.push(rodaFL)
-        }
-        if (rodaFR) {
-            carWheels.push(rodaFR)
-            frontWheels.push(rodaFR)
-        }
-        // Rear Wheels
+        
+        // Pastikan kaliper belakang terbawa (untuk shadow/render)
+        // Kita tidak perlu memanipulasi kaliper belakang karena dia statis
+        
         if (rodaRL) carWheels.push(rodaRL)
         if (rodaRR) carWheels.push(rodaRR)
 
-        // Shadows
+        // Setup Shadow
         carModel.traverse((child) => {
             if (child.isMesh) {
                 child.castShadow = true
@@ -199,14 +243,18 @@ function loadCar() {
         })
 
         scene.add(carModel)
-        console.log("✅ Mobil berhasil dimuat!")
+        console.log("✅ Mobil Siap: Posisi & Kaliper Aman!")
+        
     }, undefined, (err) => console.error("❌ Gagal load mobil:", err))
 }
 
+// ==========================================
+// 3. FUNGSI UPDATE CAR (ANIMASI)
+// ==========================================
 function updateCar() {
     if (!carModel) return
 
-    // 1. Physics
+    // --- 1. Physics (Gas/Rem) ---
     if (carSettings.autoDrive) {
         if (carSpeed < carSettings.maxSpeed * 0.5) carSpeed += carSettings.acceleration
     } else {
@@ -215,7 +263,7 @@ function updateCar() {
     }
     carSpeed *= carSettings.friction
 
-    // 2. Steering
+    // --- 2. Steering Logic ---
     let targetSteering = 0
     if (Math.abs(carSpeed) > 0.01) {
         if (keys.a) {
@@ -227,74 +275,68 @@ function updateCar() {
             targetSteering = -0.5
         }
     }
-
-    // Smooth Steering
     steeringAngle += (targetSteering - steeringAngle) * 0.1
 
-    // 3. Movement
+    // --- 3. Movement ---
     carModel.translateZ(carSpeed)
 
-    // 4. Ground Raycasting
+    // --- 4. Ground Logic ---
     if (currentMapModel) {
         const rayOrigin = carModel.position.clone()
         rayOrigin.y += 50
         raycaster.set(rayOrigin, downVector)
         const intersects = raycaster.intersectObject(currentMapModel, true)
-
         if (intersects.length > 0) {
-            const groundHeight = intersects[0].point.y
-            carModel.position.y = groundHeight
-        } else {
-            // carModel.position.y -= 0.5
+            carModel.position.y = intersects[0].point.y
         }
     }
 
-    // 5. Wheel Animation
-    carWheels.forEach(w => {
-        w.rotation.x += carSpeed * 10
+    // ==========================================
+    // --- 5. ANIMASI RODA (FINAL) ---
+    // ==========================================
+
+    // A. PUTAR BAN (MAJU) - Sumbu X
+    // Hanya mesh roda yang berputar. Kaliper diam karena tidak masuk array ini.
+    carWheels.forEach(ban => {
+        ban.rotation.x += carSpeed * 10
     })
 
-    frontWheels.forEach(w => {
-        w.rotation.order = 'YXZ'
-        w.rotation.y = steeringAngle
-    })
+    // B. BELOKKAN PIVOT (STEER) - Sumbu Y
+    // Pivot berisi (Roda + Kaliper). Keduanya ikut menoleh.
+    if (pivotFL) pivotFL.rotation.y = steeringAngle
+    if (pivotFR) pivotFR.rotation.y = steeringAngle
 
-    // 6. Camera Follow
+    // --- 6. Camera Follow ---
     if (carSettings.followCamera) {
         const relativeCameraOffset = new THREE.Vector3(0, cameraConfig.height, -cameraConfig.distance)
         const cameraOffset = relativeCameraOffset.applyMatrix4(carModel.matrixWorld)
 
-        // Camera Collision Logic
+        // Camera Collision (Opsional, sesuaikan dengan kodemu)
         if (cameraConfig.collisionEnabled) {
             const rayOrigin = carModel.position.clone()
             rayOrigin.y += 5
             const rayDirection = cameraOffset.clone().sub(rayOrigin).normalize()
             const rayDistance = rayOrigin.distanceTo(cameraOffset)
-
             raycaster.set(rayOrigin, rayDirection)
             const intersects = currentMapModel ? raycaster.intersectObject(currentMapModel, true) : []
-
             if (intersects.length > 0 && intersects[0].distance < rayDistance) {
                 cameraOffset.copy(intersects[0].point).add(rayDirection.clone().multiplyScalar(-cameraConfig.collisionOffset))
             }
         }
 
         camera.position.lerp(cameraOffset, cameraConfig.damping)
-
         const targetLook = carModel.position.clone()
         targetLook.y += cameraConfig.lookAtY
 
         camera.lookAt(targetLook)
-        camera.up.set(0, 1, 0)
         controls.target.copy(targetLook)
-
+        
         if (camera.fov !== cameraConfig.fov) {
-            camera.fov = cameraConfig.fov
-            camera.updateProjectionMatrix()
+             camera.fov = cameraConfig.fov
+             camera.updateProjectionMatrix()
         }
     }
 }
-
 // ==========================================
 // 7. CINEMATIC DIRECTOR SYSTEM (NEW)
 // ==========================================
@@ -927,7 +969,39 @@ const camPresets = {
     topDown: () => { cameraConfig.distance = 1; cameraConfig.height = 30; cameraConfig.fov = 60; cameraConfig.lookAtY = -10; },
     racing: () => { cameraConfig.distance = 6; cameraConfig.height = 2; cameraConfig.fov = 80; cameraConfig.lookAtY = 1; },
     cinematic: () => { cameraConfig.distance = 20; cameraConfig.height = 3; cameraConfig.fov = 40; cameraConfig.lookAtY = 0; },
-    driverView: () => { cameraConfig.distance = 3; cameraConfig.height = 1.5; cameraConfig.fov = 70; cameraConfig.lookAtY = 1; }
+    driverView: () => { cameraConfig.distance = 3; cameraConfig.height = 1.5; cameraConfig.fov = 70; cameraConfig.lookAtY = 1; },
+    wheelCinematic: () => {
+        // Kita gunakan Director supaya kamera bisa dikontrol manual sepenuhnya per frame
+        Director.playScenario((delta, time) => {
+            if (!carModel) return;
+
+            // 1. Tentukan Posisi Kamera (Di samping depan kiri mobil, rendah)
+            // X=2.0 (Geser kanan), Y=0.4 (Rendah), Z=1.2 (Dekat roda depan)
+            const relativeCamPos = new THREE.Vector3(2.5, 0.5, 1.2); 
+            
+            // Konversi posisi relatif ke posisi dunia (mengikuti rotasi mobil)
+            const worldCamPos = relativeCamPos.applyMatrix4(carModel.matrixWorld);
+
+            // 2. Tentukan Titik Fokus (Ke arah Roda Depan Kanan)
+            // Kita arahkan sedikit ke bawah agar velg terlihat jelas
+            const relativeTarget = new THREE.Vector3(0.8, 0.35, 1.4); 
+            const worldTarget = relativeTarget.applyMatrix4(carModel.matrixWorld);
+
+            // 3. Update Kamera
+            // Gunakan lerp agar pergerakan kamera halus (sedikit delay biar ada kesan berat)
+            camera.position.lerp(worldCamPos, 0.1);
+            camera.lookAt(worldTarget);
+            
+            // 4. Efek Kecepatan (FOV berubah saat ngebut)
+            // Semakin cepat, FOV semakin lebar
+            const baseFov = 50;
+            const speedFactor = Math.abs(carSpeed) * 50; 
+            camera.fov = baseFov + speedFactor;
+            camera.updateProjectionMatrix();
+        });
+        
+        console.log("🎥 Mode: Wheel Cinematic Shot Activated");
+    }
 }
 
 const camFolder = gui.addFolder('🎥 Camera Director')
@@ -941,6 +1015,7 @@ presetFolder.add(camPresets, 'topDown').name('🛰️ Top Down')
 presetFolder.add(camPresets, 'racing').name('🏁 Racing')
 presetFolder.add(camPresets, 'cinematic').name('🎬 Cinematic')
 presetFolder.add(camPresets, 'driverView').name('👨‍✈️ Driver View')
+presetFolder.add(camPresets, 'wheelCinematic').name('🛞 Wheel Shot (Cinematic)')
 
 const followCamFolder = camFolder.addFolder('📡 Follow Camera')
 followCamFolder.add(carSettings, 'followCamera').name('Enabled')
