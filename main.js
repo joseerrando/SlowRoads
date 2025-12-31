@@ -286,7 +286,7 @@ function updateCar() {
  if (currentMapModel) {
         const rayOrigin = carModel.position.clone()
         // Raycast origin juga harus menyesuaikan scale agar tidak tembus tanah saat mobil besar
-        rayOrigin.y += (50 * currentScale) 
+        rayOrigin.y += (2 * currentScale) 
         
         raycaster.set(rayOrigin, downVector)
         const intersects = raycaster.intersectObject(currentMapModel, true)
