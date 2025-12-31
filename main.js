@@ -254,6 +254,8 @@ function loadCar() {
 function updateCar() {
     if (!carModel) return
 
+    const currentScale = carModel.scale.x;
+
     // --- 1. Physics (Gas/Rem) ---
     if (carSettings.autoDrive) {
         if (carSpeed < carSettings.maxSpeed * 0.5) carSpeed += carSettings.acceleration
@@ -278,16 +280,19 @@ function updateCar() {
     steeringAngle += (targetSteering - steeringAngle) * 0.1
 
     // --- 3. Movement ---
-    carModel.translateZ(carSpeed)
+    carModel.translateZ(carSpeed * currentScale)
 
     // --- 4. Ground Logic ---
-    if (currentMapModel) {
+ if (currentMapModel) {
         const rayOrigin = carModel.position.clone()
-        rayOrigin.y += 50
+        // Raycast origin juga harus menyesuaikan scale agar tidak tembus tanah saat mobil besar
+        rayOrigin.y += (50 * currentScale) 
+        
         raycaster.set(rayOrigin, downVector)
         const intersects = raycaster.intersectObject(currentMapModel, true)
         if (intersects.length > 0) {
-            carModel.position.y = intersects[0].point.y
+            // Offset sedikit (0.1 * scale) agar ban tidak tenggelam
+            carModel.position.y = intersects[0].point.y + (0.1 * currentScale)
         }
     }
 
@@ -527,8 +532,7 @@ function scene_AmericanUnderpass() {
 
         scaleParams.autoScale = false; 
         
-        // Coba angka ini (misal 1.5), ubah sesuai selera sampai pas
-        if (carModel) carModel.scale.set(1.5, 1.5, 1.5); 
+        
         
         // Update slider GUI agar sinkron
         if (scaleParams) scaleParams.size = 1.5;
@@ -571,9 +575,14 @@ function scene_AmericanUnderpass() {
 function scene_AmericanCurve() {
     console.log("🎬 Map: American Curve");
     coreLoadMap('american_road_curve_ahead.glb', () => {
-        setSpawn(0, 0.5, 0, 0); // Default spawn
+        setSpawn(-200, 427, -290, Math.PI); // Default spawn
         lightingThemes.daylight();
-        
+        //
+        scaleParams.autoScale = false;
+        if(carModel) carModel.scale.set(1.5, 1.5, 1.5);
+        if (scaleParams) scaleParams.size = 1.5;
+
+        //
         // Setup Basic Cinematic
         Director.loadScenario((delta, timeInShot) => {
             if (Director.currentCut === null) {
@@ -591,8 +600,12 @@ function scene_CoastRoadAndRocks() {
     console.log("🎬 Map: Coast Road");
     coreLoadMap('coast_road_and_rocks_ver2.0.glb', () => {
         setSpawn(-55, 13, 43.5, Math.PI / 2);
-        lightingThemes.sunset();
+        lightingThemes.sunset()
 
+        scaleParams.autoScale = false;
+        if(carModel) carModel.scale.set(1, 1, 1);;
+        if (scaleParams) scaleParams.size = 1;
+        
         Director.loadScenario((delta, timeInShot) => {
             if (Director.currentCut === null) Director.cutTo('Coast_Intro');
 
@@ -613,9 +626,10 @@ function scene_CoastRoadAndRocks() {
 
 function scene_CoastTunnel() {
     console.log("🎬 Map: Coast Tunnel");
+    if (scaleParams) scaleParams.size = 0.5;
     coreLoadMap('coast_road_tunnel_and_rock.glb', () => {
-        setSpawn(0, 2, 0, 0); 
-        lightingThemes.sunset(); // Tunnel biasanya bagus agak gelap/sore
+        setSpawn(106, 8, 0.5, Math.PI * 3/2); 
+        lightingThemes.night(); 
     });
 }
 
