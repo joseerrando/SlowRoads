@@ -787,7 +787,7 @@ function scene_MountainRoad() {
 function scene_ReefCoast() {
   console.log("🎬 Map: Reef & Coastal");
   coreLoadMap("reef_and_coastal_road.glb", () => {
-    setSpawn(0, 5, 0, 0);
+    setSpawn(20, 10, -50, Math.PI / 10);
     lightingThemes.clear(); // Laut cerah
   });
 }
@@ -834,13 +834,131 @@ function scene_TestMode() {
 }
 
 function scene_BridgeDesign() {
+  console.log("🎬 Map: Bridge (Fixed by User Coordinates)");
+
+  if (typeof AutoShowcase !== "undefined") AutoShowcase.active = false;
+
   coreLoadMap("bridge_design.glb", () => {
-    setSpawn(-369, 5.68, 93, Math.PI / 2.5 + 0.7);
+    // ====================================================
+    // 📍 KOORDINAT DARI DATA ANDA
+    // ====================================================
+    // Console: x: -190.02, y: 5.96, z: 6.39 | Rot Y: 2.02
+
+    const START_X = -190.02;
+    const START_Y = 6.0; // Naikkan dikit dari 5.96 biar aman
+    const START_Z = 6.39;
+    const START_ROT = 2.02;
+
+    // ====================================================
+
+    // Set Spawn
+    setSpawn(START_X, START_Y, START_Z, START_ROT);
+
     lightingThemes.daylight();
-    // Tidak ada cinematic, langsung main
+
+    // SETTING MOBIL
+    carSettings.autoDrive = false;
+    carSettings.maxSpeed = 1.4;
+    carSettings.acceleration = 0.02;
+    carSettings.turnSpeed = 0.05;
+    carSpeed = 0;
+
+    toggleCarLights(true);
+
+    // Curve Strength (Kekuatan Belok)
+    const curveStrength = 0.0015;
+
+    // Setup Awal Kamera
+    if (carModel) {
+      // Posisi kamera start di belakang mobil
+      const offset = new THREE.Vector3(3, 1.5, -4.5).applyMatrix4(carModel.matrixWorld);
+      camera.position.copy(offset);
+      camera.lookAt(carModel.position);
+    }
+
+    // SKENARIO SUTRADARA
+    Director.loadScenario((delta, t) => {
+      if (t > 22.0) {
+        carSpeed *= 0.9;
+        return;
+      }
+
+      // === A. LOGIKA MOBIL ===
+
+      // Diam sebentar (0s - 1.5s)
+      if (t < 1.5) {
+        carSpeed = 0;
+      }
+      // MAJU LURUS (1.5s - 5.0s)
+      // Kita beri waktu 3.5 detik lurus dari titik start baru ini
+      else if (t >= 1.5 && t < 5.0) {
+        if (!carSettings.autoDrive) carSettings.autoDrive = true;
+        steeringAngle = 0;
+      }
+      // BELOK HALUS (5.0s - 15.0s)
+      else if (t >= 5.0 && t < 15.0) {
+        carModel.rotation.y -= curveStrength;
+        steeringAngle = 0.12;
+      }
+      // LURUS LAGI (15s+)
+      else {
+        steeringAngle = 0;
+      }
+
+      // === B. LOGIKA KAMERA (Tetap menggunakan Cinematic 3 Shot) ===
+
+      let relOffset, lookTarget;
+
+      // SHOT 1: LOW ANGLE REAR (0s - 4.0s)
+      if (t < 4.0) {
+        relOffset = new THREE.Vector3(2.0, 1.2, -4.5);
+        relOffset.y += Math.sin(t * 2) * 0.02;
+
+        lookTarget = carModel.position.clone();
+        lookTarget.y += 0.5;
+      }
+
+      // SHOT 2: DRONE SIDE CLOSEUP (4.0s - 12.0s)
+      else if (t >= 4.0 && t < 12.0) {
+        const progress = (t - 4.0) / 8.0;
+
+        // Posisi Kamera (Tetap sama seperti yang sudah bagus tadi)
+        const x = THREE.MathUtils.lerp(-4.5, -7.0, progress);
+        const y = THREE.MathUtils.lerp(1.2, 3.5, progress);
+        const z = THREE.MathUtils.lerp(1.0, 4.0, progress);
+
+        relOffset = new THREE.Vector3(x, y, z);
+
+        lookTarget = carModel.position.clone();
+
+        // FIX POSISI LAYAR (FRAMING):
+        // 1. Naikkan sedikit fokusnya agar pas di tengah kaca jendela (0.5 -> 0.8)
+        lookTarget.y += 0.8;
+
+        // 2. GESER FOKUS KE DEPAN (PENTING!)
+        // Dengan melihat 4 meter di depan mobil, posisi mobil di layar akan mundur/bergeser
+        // ke area kosong, sehingga tidak tertumpuk menu di tengah/kanan layar.
+        lookTarget.z += 4.0;
+      }
+      // SHOT 3: TOP AWAY (12.0s - Selesai)
+      else {
+        const progress = (t - 12.0) / 10.0;
+        const height = THREE.MathUtils.lerp(15, 30, progress);
+        const dist = THREE.MathUtils.lerp(-5, -15, progress);
+
+        relOffset = new THREE.Vector3(0, height, dist);
+        lookTarget = carModel.position.clone();
+      }
+
+      // Eksekusi
+      const worldCam = relOffset.applyMatrix4(carModel.matrixWorld);
+      camera.position.lerp(worldCam, 0.08);
+      controls.target.lerp(lookTarget, 0.1);
+    });
+
+    Director.play();
   });
 }
-
 function scene_City() {
   console.log("🎬 Map: City (Front Grill Fix)");
 
