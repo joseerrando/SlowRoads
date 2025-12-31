@@ -485,6 +485,26 @@ const CAM_CUTS = {
         pos: new THREE.Vector3(52, 1, 22),
         tgt: new THREE.Vector3(50, 0.5, 20),
         roll: new THREE.Vector3(0, 1, 0)
+    },
+
+// --- CITY SHOTS---
+    // Shot 1: Dari depan bawah (Intro Parkir)
+    'City_Park_Low': {
+        pos: new THREE.Vector3(125, -8, -190), // Di depan mobil agak nyerong
+        tgt: new THREE.Vector3(119, -9, -197), // Fokus ke mobil
+        roll: new THREE.Vector3(0, 1, 0)
+    },
+    // Shot 2: Drone View (Untuk melihat mobil belok)
+    'City_Drone_Turn': {
+        pos: new THREE.Vector3(100, 10, -210), // Dari atas gedung/drone
+        tgt: new THREE.Vector3(119, -9, -197), // Fokus ke area belokan
+        roll: new THREE.Vector3(0, 1, 0)
+    },
+    // Shot 3: Cinematic Side (Action)
+    'City_Action_Side': {
+        pos: new THREE.Vector3(115, -8, -205), // Samping mobil
+        tgt: new THREE.Vector3(119, -9, -197),
+        roll: new THREE.Vector3(0, 1, 0)
     }
 };
 
@@ -823,73 +843,99 @@ function scene_City() {
        // Reset state
         carSettings.autoDrive = false; 
         carSpeed = 0;
-        toggleCarLights(false);
+
         // 2. Load Skenario Pergerakan
-        Director.loadScenario((delta, timeInShot) => {
+        if (typeof toggleCarLights === 'function') toggleCarLights(false);
+
+        let relativeCamOffset = new THREE.Vector3(5, 2, 10); // Awal: Di depan kanan mobil
+        let relativeLookAt = new THREE.Vector3(0, 1, 0); // Awal: Lihat body mobil
+
+        // 2. LOAD SKENARIO (Satu Timeline Besar)
+        Director.loadScenario((delta, t, totalTime) => {
             
-            // ===============================================
-            // FASE 1: INTRO (0s - 3s)
-            // ===============================================
-            if (timeInShot < 3.0) {
-                // Kamera muter santai mengelilingi mobil (Third Person)
-                const angle = timeInShot * 0.5;
-                camera.position.x = carModel.position.x + Math.sin(angle) * 8;
-                camera.position.z = carModel.position.z + Math.cos(angle) * 8;
-                camera.position.y = carModel.position.y + 3;
-                camera.lookAt(carModel.position);
+            // =========================================================
+            // BAGIAN 1: LOGIKA MOBIL (Sama seperti sebelumnya)
+            // =========================================================
+            
+            // Start Engine di detik 3.0
+            if (t > 3.0 && !carSettings.autoDrive) {
+                carSettings.autoDrive = true;
+                carSettings.maxSpeed = 1.0;
+                if (typeof toggleCarLights === 'function') toggleCarLights(true);
+            }
+
+            
+            if (t > 3.5 && t < 4.3) {
+                // Kalkulasi belok yang smooth
+                const turnPower = THREE.MathUtils.smoothstep(t, 3.5, 4.5);
+                carModel.rotation.y -= 0.015 * turnPower; 
+                steeringAngle = -0.5 * turnPower;
             } 
+            // Lurus Kembali (Detik 5.5++)
+            else if (t >= 4) {
+                steeringAngle += (0 - steeringAngle) * 0.1;
+            }
 
-            // ===============================================
-            // FASE 2: AKSI - DRIVER VIEW (3s - Selesai)
-            // ===============================================
-            else {
-                // A. Nyalakan Mesin & Gas
-                if (!carSettings.autoDrive) {
-                    toggleCarLights(true);
-                    carSettings.autoDrive = true;
-                    carSettings.maxSpeed = 0.8; // Kecepatan sedang
-                }
+            // =========================================================
+            // BAGIAN 2: LOGIKA KAMERA ORBIT (ROTASI MATEMATIS)
+            // =========================================================
+            
+            if (carModel) {
+                // A. Tentukan Target Fokus (Selalu Mobil)
+                // Kita update target OrbitControl agar selalu nempel di mobil
+                const targetPos = carModel.position.clone();
+                targetPos.y += 1.5; // Fokus ke atap/jendela mobil
+                controls.target.copy(targetPos);
 
-                // B. LOGIKA MENYETIR OTOMATIS (SCRIPTING)
-                // ------------------------------------------------
+                // B. Hitung Sudut Orbit (Angle) berdasarkan Waktu
+                // Ini inti dari "Orbit Rotate"
                 
-                // Detik 3.5 s/d 5.5: BELOK KANAN (Hindari Bangunan)
-                if (timeInShot > 3.5 && timeInShot < 4.0) {
-                    // Putar rotasi mobil ke kanan secara manual
-                    carModel.rotation.y -= 0.012; 
-                    steeringAngle = -0.5; // Visual setir belok
+                let orbitAngle, orbitDistance, orbitHeight;
+
+                // FASE 1: ORBIT SHOWCASE (0s - 3s)
+                // Kamera berputar dari samping depan ke samping belakang
+                if (t < 3.0) {
+                    // Sudut berputar pelan seiring waktu
+                    orbitAngle = carModel.rotation.y + Math.PI / 4 + (t * 0.5); 
+                    orbitDistance = 7.0; // Jarak dekat
+                    orbitHeight = 2.0;   // Rendah
                 } 
-                // Detik 5.0 ke atas: LURUS KEMBALI
-                else if (timeInShot >= 4.0) {
-                    if (steeringAngle < 0) steeringAngle += 0.05; // Balikin setir
+                
+                // FASE 2: TRANSISI KE CHASE (3s - 6s)
+                // Kamera berputar mencari posisi belakang mobil saat mobil mulai jalan
+                else {
+                    // Sudut target (Belakang Mobil)
+                    const targetAngle = carModel.rotation.y + Math.PI; // Di belakang
+                    
+                    // Kita lerp sudut orbit saat ini menuju sudut belakang
+                    // Agar transisinya smooth tidak patah
+                    const transitionSpeed = (t - 3.0) * 0.5; // Semakin lama semakin cepat ngunci
+                    const safeTransition = Math.min(transitionSpeed, 1.0); // Max 1.0
+                    
+                    // Sudut awal fase ini
+                    const startAngle = carModel.rotation.y + Math.PI / 4 + (3.0 * 0.5);
+                    
+                    // Interpolasi Sudut
+                    orbitAngle = THREE.MathUtils.lerp(startAngle, targetAngle, safeTransition);
+                    
+                    // Jarak menjauh sedikit saat ngebut
+                    orbitDistance = THREE.MathUtils.lerp(7.0, 10.0, safeTransition);
+                    orbitHeight = THREE.MathUtils.lerp(2.0, 4.0, safeTransition);
                 }
 
-                // C. KAMERA DRIVER VIEW (FIRST PERSON)
-                if (carModel) {
-                    // 1. Tentukan Posisi Mata Supir
-                    // X: 0.35 (Geser kanan/kiri jok), Y: 1.15 (Tinggi mata), Z: 0.2 (Posisi majuan/munduran jok)
-                    const driverOffset = new THREE.Vector3(0.35, 1.15, 0.2);
-                    
-                    // Konversi ke posisi dunia nyata mengikuti rotasi mobil
-                    const cameraTargetPos = driverOffset.applyMatrix4(carModel.matrixWorld);
+                // C. Terapkan Posisi Kamera (Rumus Lingkaran/Orbit)
+                // X = PusatX + Jarak * sin(Sudut)
+                // Z = PusatZ + Jarak * cos(Sudut)
+                
+                camera.position.x = targetPos.x + orbitDistance * Math.sin(orbitAngle);
+                camera.position.z = targetPos.z + orbitDistance * Math.cos(orbitAngle);
+                camera.position.y = targetPos.y + orbitHeight;
 
-                    // 2. Pindah kamera
-                    // Gunakan Lerp yang CEPAT (0.5) agar kamera terasa menempel di mobil
-                    // Kalau terlalu lambat, nanti kepala tembus jok belakang saat ngebut
-                    camera.position.lerp(cameraTargetPos, 0.5);
-                    
-                    // 3. Arah Pandang (Melihat Jauh ke Depan Jalan)
-                    // Kita lihat ke titik Z=30 di depan mobil agar pandangan stabil
-                    const lookAtOffset = new THREE.Vector3(0, 1.0, 30).applyMatrix4(carModel.matrixWorld);
-                    camera.lookAt(lookAtOffset);
-
-                    // (Opsional) Update controls target agar jika user klik mouse tidak loncat
-                    controls.target.copy(lookAtOffset);
-                }
+                // D. Kunci Mata Kamera
+                camera.lookAt(targetPos);
             }
         });
 
-        // Langsung mainkan
         Director.play();
     });
 }
