@@ -1005,6 +1005,7 @@ const camPresets = {
 }
 
 const camFolder = gui.addFolder('🎥 Camera Director')
+
 const directorFolder = camFolder.addFolder('🎬 Action')
 directorFolder.add(Director, 'play').name('▶ Play Cinematic')
 directorFolder.add(Director, 'stop').name('⏹ Stop / Manual')
@@ -1021,13 +1022,80 @@ const followCamFolder = camFolder.addFolder('📡 Follow Camera')
 followCamFolder.add(carSettings, 'followCamera').name('Enabled')
 followCamFolder.add(cameraConfig, 'distance', 2, 50).name('Distance').step(1)
 followCamFolder.add(cameraConfig, 'height', 1, 30).name('Height').step(1)
+followCamFolder.add(cameraConfig, 'lookAtY', -5, 10).name('LookAt Y').step(0.5)
+// Removed Roll control to prevent confusion
+followCamFolder.add(cameraConfig, 'fov', 30, 120).name('Field of View').step(5)
+followCamFolder.add(cameraConfig, 'damping', 0.01, 1.0).name('Smoothness').step(0.01)
+followCamFolder.add(cameraConfig, 'collisionEnabled').name('Collision Avoidance')
+followCamFolder.add(cameraConfig, 'collisionOffset', 1, 10).name('Collision Offset').step(0.5)
+
+// Orbit Controls
+const orbitFolder = camFolder.addFolder('🔄 Orbit Controls')
+orbitFolder.add(cameraConfig, 'enableRotate').name('Enable Rotation')
+orbitFolder.add(cameraConfig, 'enableZoom').name('Enable Zoom')
+orbitFolder.add(cameraConfig, 'enablePan').name('Enable Pan')
+orbitFolder.add(cameraConfig, 'minDistance', 1, 50).name('Min Distance').step(1)
+orbitFolder.add(cameraConfig, 'maxDistance', 10, 200).name('Max Distance').step(10)
 camFolder.open()
 
 // Lighting
 const lightFolder = gui.addFolder('💡 Lighting System')
+// Ambient Light
+const ambientFolder = lightFolder.addFolder('🌤️ Ambient Light')
+ambientFolder.add(lightingConfig, 'ambientIntensity', 0, 3).name('Intensity').step(0.1).onChange(updateLighting)
+ambientFolder.addColor(lightingConfig, 'ambientColor').name('Color').onChange(updateLighting)
+
+// Directional Light
+const dirFolder = lightFolder.addFolder('☀️ Directional Light')
+dirFolder.add(lightingConfig, 'dirIntensity', 0, 5).name('Intensity').step(0.1).onChange(updateLighting)
+dirFolder.addColor(lightingConfig, 'dirColor').name('Color').onChange(updateLighting)
+dirFolder.add(lightingConfig, 'dirPositionX', -200, 200).name('Position X').step(10).onChange(updateLighting)
+dirFolder.add(lightingConfig, 'dirPositionY', -200, 200).name('Position Y').step(10).onChange(updateLighting)
+dirFolder.add(lightingConfig, 'dirPositionZ', -200, 200).name('Position Z').step(10).onChange(updateLighting)
+
+// Hemisphere Light
+const hemiFolder = lightFolder.addFolder('🌎 Hemisphere Light')
+hemiFolder.add(lightingConfig, 'hemisphereIntensity', 0, 2).name('Intensity').step(0.1).onChange(updateLighting)
+hemiFolder.addColor(lightingConfig, 'skyColor').name('Sky Color').onChange(updateLighting)
+hemiFolder.addColor(lightingConfig, 'groundColor').name('Ground Color').onChange(updateLighting)
+
+// Spot Light
+const spotFolder = lightFolder.addFolder('🔦 Spot Light')
+spotFolder.add(lightingConfig, 'spotIntensity', 0, 5).name('Intensity').step(0.1).onChange(updateLighting)
+spotFolder.addColor(lightingConfig, 'spotColor').name('Color').onChange(updateLighting)
+spotFolder.add(lightingConfig, 'spotDistance', 0, 500).name('Distance').step(10).onChange(updateLighting)
+spotFolder.add(lightingConfig, 'spotAngle', 1, 60).name('Angle').step(1).onChange(updateLighting)
+
+// Shadows
+const shadowFolder = lightFolder.addFolder('🌑 Shadows')
+shadowFolder.add(lightingConfig, 'shadowEnabled').name('Enabled').onChange(updateLighting)
+shadowFolder.add(lightingConfig, 'shadowMapSize', [512, 1024, 2048, 4096]).name('Quality').onChange(updateLighting)
+shadowFolder.add(lightingConfig, 'shadowBias', -0.001, 0.001).name('Bias').step(0.0001).onChange(updateLighting)
+shadowFolder.add(lightingConfig, 'shadowRadius', 0, 5).name('Softness').step(0.1).onChange(updateLighting)
+
+// Lighting Themes
 const themeFolder = lightFolder.addFolder('🎨 Lighting Themes')
 themeFolder.add({ theme: 'daylight' }, 'theme', ['daylight', 'sunset', 'night', 'foggy', 'clear'])
     .name('Select Theme').onChange((val) => lightingThemes[val]())
+
+lightFolder.open()
+
+const perfFolder = gui.addFolder('⚡ Performance')
+perfFolder.add(renderer.shadowMap, 'enabled').name('Shadows')
+perfFolder.add(renderer.shadowMap, 'type', [THREE.BasicShadowMap, THREE.PCFShadowMap, THREE.PCFSoftShadowMap])
+    .name('Shadow Type')
+    .onChange((val) => {
+        renderer.shadowMap.type = val
+    })
+
+perfFolder.add({ antialias: true }, 'antialias').name('Antialiasing').onChange((val) => {
+    renderer.setPixelRatio(val ? window.devicePixelRatio : 1)
+})
+
+perfFolder.add({ fps: 60 }, 'fps', [30, 60, 120]).name('Target FPS').onChange((val) => {
+    console.log(`Target FPS set to: ${val}`)
+})
+
 
 // ==========================================
 // 13. INITIALIZATION & ANIMATION LOOP
