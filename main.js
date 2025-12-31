@@ -248,8 +248,9 @@ function loadCar() {
     }, undefined, (err) => console.error("❌ Gagal load mobil:", err))
 }
 
+
 // ==========================================
-// 3. FUNGSI UPDATE CAR (ANIMASI)
+// 3. FUNGSI UPDATE CAR (ANIMASI + PHYSICS)
 // ==========================================
 function updateCar() {
     if (!carModel) return
@@ -258,15 +259,20 @@ function updateCar() {
 
     // --- 1. Physics (Gas/Rem) ---
     if (carSettings.autoDrive) {
+        // Logika Auto Drive Sederhana
         if (carSpeed < carSettings.maxSpeed * 0.5) carSpeed += carSettings.acceleration
     } else {
+        // Manual Control
         if (keys.w) carSpeed += carSettings.acceleration
         if (keys.s) carSpeed -= carSettings.acceleration
     }
+    
+    // Friction (Gaya gesek agar mobil melambat pelan2)
     carSpeed *= carSettings.friction
 
     // --- 2. Steering Logic ---
     let targetSteering = 0
+    // Mobil hanya bisa belok jika bergerak (realistis)
     if (Math.abs(carSpeed) > 0.01) {
         if (keys.a) {
             carModel.rotation.y += carSettings.turnSpeed
@@ -279,11 +285,28 @@ function updateCar() {
     }
     steeringAngle += (targetSteering - steeringAngle) * 0.1
 
-    // --- 3. Movement ---
+    // --- 3. COLLISION SYSTEM (BARU) ---
+    // Cek apakah di depan ada tembok?
+    if (Math.abs(carSpeed) > 0.01) { // Hanya cek jika bergerak
+        if (checkCollision(currentScale)) {
+            // Efek Tabrakan:
+            // 1. Balikkan arah speed (Bounce effect)
+            carSpeed = -carSpeed * 0.5; 
+            
+            // 2. (Opsional) Jika AutoDrive, paksa stop sebentar atau putar balik logic
+            if (carSettings.autoDrive) {
+                // Untuk cinematic, kalau nabrak kita stop aja biar ga aneh
+                carSpeed = 0; 
+            }
+        }
+    }
+
+    // --- 4. Movement (Update Posisi) ---
+    // translateZ menggerakkan mobil ke arah hadapnya
     carModel.translateZ(carSpeed * currentScale)
 
-    // --- 4. Ground Logic ---
- if (currentMapModel) {
+    // --- 5. Ground Logic (Gravity) ---
+    if (currentMapModel) {
         const rayOrigin = carModel.position.clone()
         // Raycast origin juga harus menyesuaikan scale agar tidak tembus tanah saat mobil besar
         rayOrigin.y += (2 * currentScale) 
@@ -293,38 +316,42 @@ function updateCar() {
         if (intersects.length > 0) {
             // Offset sedikit (0.1 * scale) agar ban tidak tenggelam
             carModel.position.y = intersects[0].point.y + (0.1 * currentScale)
+        } else {
+            // Fallback jika mobil "terbang" keluar map (Gravity sederhana)
+            carModel.position.y -= 0.5;
         }
     }
 
     // ==========================================
-    // --- 5. ANIMASI RODA (FINAL) ---
+    // --- 6. ANIMASI RODA ---
     // ==========================================
 
     // A. PUTAR BAN (MAJU) - Sumbu X
-    // Hanya mesh roda yang berputar. Kaliper diam karena tidak masuk array ini.
     carWheels.forEach(ban => {
         ban.rotation.x += carSpeed * 10
     })
 
     // B. BELOKKAN PIVOT (STEER) - Sumbu Y
-    // Pivot berisi (Roda + Kaliper). Keduanya ikut menoleh.
     if (pivotFL) pivotFL.rotation.y = steeringAngle
     if (pivotFR) pivotFR.rotation.y = steeringAngle
 
-    // --- 6. Camera Follow ---
+    // --- 7. Camera Follow ---
     if (carSettings.followCamera) {
         const relativeCameraOffset = new THREE.Vector3(0, cameraConfig.height, -cameraConfig.distance)
         const cameraOffset = relativeCameraOffset.applyMatrix4(carModel.matrixWorld)
 
-        // Camera Collision (Opsional, sesuaikan dengan kodemu)
+        // Camera Collision (Agar kamera tidak tembus tembok saat di gedung sempit)
         if (cameraConfig.collisionEnabled) {
             const rayOrigin = carModel.position.clone()
             rayOrigin.y += 5
             const rayDirection = cameraOffset.clone().sub(rayOrigin).normalize()
             const rayDistance = rayOrigin.distanceTo(cameraOffset)
+            
             raycaster.set(rayOrigin, rayDirection)
             const intersects = currentMapModel ? raycaster.intersectObject(currentMapModel, true) : []
+            
             if (intersects.length > 0 && intersects[0].distance < rayDistance) {
+                // Kamera maju mendekat jika terhalang tembok
                 cameraOffset.copy(intersects[0].point).add(rayDirection.clone().multiplyScalar(-cameraConfig.collisionOffset))
             }
         }
@@ -708,9 +735,78 @@ function scene_BridgeDesign() {
 
 function scene_City() {
     coreLoadMap('city_for_my_game.glb', () => {
-        setSpawn(100, -10, -255, Math.PI * 2 - 0.1);
+        setSpawn(119.10, -9.35, -197.20, Math.PI /10);
         lightingThemes.daylight();
-        // Tidak ada cinematic, langsung main
+       // Reset state
+        carSettings.autoDrive = false; 
+        carSpeed = 0;
+
+        // 2. Load Skenario Pergerakan
+Director.loadScenario((delta, timeInShot) => {
+            
+            // ===============================================
+            // FASE 1: INTRO (0s - 3s)
+            // ===============================================
+            if (timeInShot < 3.0) {
+                // Kamera muter santai mengelilingi mobil (Third Person)
+                const angle = timeInShot * 0.5;
+                camera.position.x = carModel.position.x + Math.sin(angle) * 8;
+                camera.position.z = carModel.position.z + Math.cos(angle) * 8;
+                camera.position.y = carModel.position.y + 3;
+                camera.lookAt(carModel.position);
+            } 
+
+            // ===============================================
+            // FASE 2: AKSI - DRIVER VIEW (3s - Selesai)
+            // ===============================================
+            else {
+                // A. Nyalakan Mesin & Gas
+                if (!carSettings.autoDrive) {
+                    carSettings.autoDrive = true;
+                    carSettings.maxSpeed = 0.8; // Kecepatan sedang
+                }
+
+                // B. LOGIKA MENYETIR OTOMATIS (SCRIPTING)
+                // ------------------------------------------------
+                
+                // Detik 3.5 s/d 5.5: BELOK KANAN (Hindari Bangunan)
+                if (timeInShot > 3.5 && timeInShot < 4.0) {
+                    // Putar rotasi mobil ke kanan secara manual
+                    carModel.rotation.y -= 0.012; 
+                    steeringAngle = -0.5; // Visual setir belok
+                } 
+                // Detik 5.0 ke atas: LURUS KEMBALI
+                else if (timeInShot >= 4.0) {
+                    if (steeringAngle < 0) steeringAngle += 0.05; // Balikin setir
+                }
+
+                // C. KAMERA DRIVER VIEW (FIRST PERSON)
+                if (carModel) {
+                    // 1. Tentukan Posisi Mata Supir
+                    // X: 0.35 (Geser kanan/kiri jok), Y: 1.15 (Tinggi mata), Z: 0.2 (Posisi majuan/munduran jok)
+                    const driverOffset = new THREE.Vector3(0.35, 1.15, 0.2);
+                    
+                    // Konversi ke posisi dunia nyata mengikuti rotasi mobil
+                    const cameraTargetPos = driverOffset.applyMatrix4(carModel.matrixWorld);
+
+                    // 2. Pindah kamera
+                    // Gunakan Lerp yang CEPAT (0.5) agar kamera terasa menempel di mobil
+                    // Kalau terlalu lambat, nanti kepala tembus jok belakang saat ngebut
+                    camera.position.lerp(cameraTargetPos, 0.5);
+                    
+                    // 3. Arah Pandang (Melihat Jauh ke Depan Jalan)
+                    // Kita lihat ke titik Z=30 di depan mobil agar pandangan stabil
+                    const lookAtOffset = new THREE.Vector3(0, 1.0, 30).applyMatrix4(carModel.matrixWorld);
+                    camera.lookAt(lookAtOffset);
+
+                    // (Opsional) Update controls target agar jika user klik mouse tidak loncat
+                    controls.target.copy(lookAtOffset);
+                }
+            }
+        });
+
+        // Langsung mainkan
+        Director.play();
     });
 }
 
@@ -724,19 +820,21 @@ function scene_DesertRoad() {
 
 // --- REGISTRY  MAP---
 const sceneRegistry = {
-    'American Underpass': scene_AmericanUnderpass,
-    'American Curve': scene_AmericanCurve,
-    'Coast Road & Rocks': scene_CoastRoadAndRocks,
-    'Coast Tunnel': scene_CoastTunnel,
+    '1. City': scene_City,
+    '2. bridge_design': scene_BridgeDesign,
+    '3. American Curve': scene_AmericanCurve,
+    '4. American Underpass': scene_AmericanUnderpass,
+    '5, Coast Road & Rocks': scene_CoastRoadAndRocks,
+    '6. Reef & Coastal': scene_ReefCoast,
+    '7. Coast Tunnel': scene_CoastTunnel,
     'Hokkaido Snowfield': scene_HokkaidoSnow,
     'Mountain Road': scene_MountainRoad,
-    'Reef & Coastal': scene_ReefCoast,
     'Highway': scene_Highway,
     'Road to Mestia': scene_Mestia,
     'Road with Trees': scene_TreesRoad,
     'Tunnel Road': scene_TunnelRoad,
-    'bridge_design': scene_BridgeDesign,
-    'City': scene_City,
+    
+    
     'Desert road': scene_DesertRoad,
     'Test Mode (Debug)': scene_TestMode
 };
@@ -831,6 +929,45 @@ function detectRoadWidth() {
     }
 
     return validSamples > 0 ? totalWidth / validSamples : 0
+}
+
+function checkCollision(currentScale) {
+    if (!currentMapModel || !carModel) return false;
+
+    // 1. Tentukan arah deteksi (Maju atau Mundur tergantung speed)
+    // Jika speed positif (maju), ray ke depan (Z positif). Jika mundur, ray ke belakang.
+    // Note: translateZ di three.js biasanya maju ke arah Z positif relatif object
+    const direction = new THREE.Vector3(0, 0, carSpeed > 0 ? 1 : -1);
+    direction.applyQuaternion(carModel.quaternion); // Sesuaikan dengan rotasi mobil
+
+    // 2. Tentukan Titik Awal Ray (Bumper Mobil)
+    const rayOrigin = carModel.position.clone();
+    // Naikkan sedikit (y) agar tidak kena aspal/polisi tidur, sesuaikan dengan scale
+    rayOrigin.y += (0.5 * currentScale); 
+
+    // 3. Setup Raycaster
+    // Kita gunakan raycaster global yg sudah ada
+    raycaster.set(rayOrigin, direction);
+
+    // 4. Cek Tabrakan dengan Map
+    // Kita cek objek apa saja yang ada di depan
+    const intersects = raycaster.intersectObject(currentMapModel, true);
+
+    // 5. Logika Tabrakan
+    // Jarak aman tabrakan (sesuaikan dengan scale mobil)
+    const safeDistance = 2.5 * currentScale; 
+
+    if (intersects.length > 0) {
+        const distance = intersects[0].distance;
+        
+        // Jika jarak objek lebih dekat dari jarak aman
+        if (distance < safeDistance) {
+            console.warn("💥 CRASH DETECTED!");
+            return true; // Ada tabrakan
+        }
+    }
+
+    return false; // Aman
 }
 
 function autoScaleCarForMap() {
@@ -1173,7 +1310,7 @@ function animate(currentTime) {
     else if (!carSettings.followCamera) {
         controls.update()
     }
-
+        AutoShowcase.update(deltaSeconds);
     // Update Lighting Anim
     if (lightingConfig.environmentRotation !== 0) {
         const time = clock.getElapsedTime()
@@ -1191,6 +1328,107 @@ window.addEventListener('resize', () => {
 })
 
 animate(0)
+
+
+// ==========================================
+// 14. TRANSITION EFFECT (FADE CURTAIN)
+// ==========================================
+
+const fadeCurtain = document.createElement('div');
+fadeCurtain.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #000; opacity: 0; pointer-events: none;
+    transition: opacity 0.5s ease-in-out; z-index: 10000;
+`;
+document.body.appendChild(fadeCurtain);
+
+function triggerTransition(callback) {
+    // 1. Layar Gelap
+    fadeCurtain.style.opacity = '1';
+    
+    setTimeout(() => {
+        // 2. Jalankan fungsi ganti map di saat layar gelap
+        if (callback) callback();
+
+        // 3. Tunggu sebentar loading, lalu layar terang kembali
+        setTimeout(() => {
+            fadeCurtain.style.opacity = '0';
+        }, 800); 
+    }, 600); // Waktu tunggu fade in selesai
+}
+
+// ==========================================
+// 15. AUTO SHOWCASE SYSTEM
+// ==========================================
+
+const AutoShowcase = {
+    active: false,
+    timer: 0,
+    durationPerMap: 12, // Detik per map
+    currentIndex: 0,
+    // Ambil semua nama map dari sceneRegistry, kecuali Test Mode
+    playlist: Object.keys(sceneRegistry).filter(name => name !== 'Test Mode (Debug)'),
+    
+    start: function() {
+        if (this.active) return;
+        this.active = true;
+        this.timer = 0;
+        this.currentIndex = 0;
+        console.log("📺 Auto Showcase Started!");
+        
+        // Mulai dari map pertama
+        this.loadCurrentMap();
+    },
+
+    stop: function() {
+        this.active = false;
+        console.log("📺 Auto Showcase Stopped.");
+    },
+
+    next: function() {
+        this.currentIndex++;
+        // Jika sudah habis, ulang dari awal (Looping)
+        if (this.currentIndex >= this.playlist.length) {
+            this.currentIndex = 0;
+        }
+        this.loadCurrentMap();
+    },
+
+    loadCurrentMap: function() {
+        const mapName = this.playlist[this.currentIndex];
+        
+        // Gunakan efek transisi agar rekaman mulus
+        triggerTransition(() => {
+            console.log(`📺 Showcase Switching to: ${mapName}`);
+            
+            // Update dropdown GUI agar sinkron
+            mapControls.selectedMap = mapName;
+            
+            // Load Map
+            loadMap(mapName);
+            
+            // Pastikan mobil jalan otomatis & kamera sinematik nyala
+            // (Tergantung logika di dalam function map masing-masing)
+             if (carSettings) {
+                carSettings.autoDrive = true;
+                // Opsional: Reset speed agar tidak terlalu ngebut dari map sebelumnya
+                carSpeed = 0; 
+            }
+        });
+    },
+
+    update: function(delta) {
+        if (!this.active) return;
+
+        this.timer += delta;
+
+        // Cek apakah waktunya ganti map
+        if (this.timer > this.durationPerMap) {
+            this.timer = 0;
+            this.next();
+        }
+    }
+};
 
 // Helper HTML Loading
 const loadingDiv = document.createElement('div')
