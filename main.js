@@ -248,6 +248,89 @@ function loadCar() {
     }, undefined, (err) => console.error("❌ Gagal load mobil:", err))
 }
 
+function toggleCarLights(turnOn) {
+    if (!carModel) return;
+
+    // --- A. SETUP INITIAL (JALAN SEKALI SAJA) ---
+    if (!carModel.userData.lightsInitialized) {
+        
+        carModel.userData.lightSources = []; // Penampung cahaya sorot
+
+        // 1. CARI MESH BAWAAN GLB & SIAPKAN MATERIAL
+        carModel.traverse((child) => {
+            if (child.isMesh) {
+                // Konfigurasi Lampu Depan
+                if (child.name === 'Lampu_Depan') {
+                    // Clone material agar tidak merusak part lain yang warnanya sama
+                    child.material = child.material.clone(); 
+                    child.material.emissiveMap = null; // Reset map jika ada
+                    child.material.emissive = new THREE.Color(0xffffff); // Warna Putih
+                    child.material.emissiveIntensity = 0; // Mulai dari mati
+                    carModel.userData.meshLampuDepan = child;
+                }
+
+                // Konfigurasi Lampu Belakang
+                if (child.name === 'Lampu_Belakang') {
+                    child.material = child.material.clone();
+                    child.material.emissive = new THREE.Color(0xff0000); // Warna Merah
+                    child.material.emissiveIntensity = 0; // Mulai dari mati
+                    carModel.userData.meshLampuBelakang = child;
+                }
+            }
+        });
+
+        // 2. BUAT SUMBER CAHAYA (SOROTAN KE JALAN)
+        // Kita tetap butuh ini agar aspal menjadi terang
+        
+        // Fungsi bikin SpotLight (Headlight)
+        const addSpotLight = (x, y, z) => {
+            const light = new THREE.SpotLight(0xffffff, 0, 80, 0.6, 0.5, 1);
+            light.position.set(x, y, z);
+            light.target.position.set(x, 0.5, z + 10); // Sorot ke depan
+            carModel.add(light);
+            carModel.add(light.target);
+            carModel.userData.lightSources.push({ light: light, type: 'head' });
+        };
+
+        // Fungsi bikin PointLight (Taillight - Cahaya merah di aspal belakang)
+        const addPointLight = (x, y, z) => {
+            const light = new THREE.PointLight(0xff0000, 0, 5, 2);
+            light.position.set(x, y, z);
+            carModel.add(light);
+            carModel.userData.lightSources.push({ light: light, type: 'tail' });
+        };
+
+        // Posisi manual (Sesuaikan sedikit jika kurang pas dengan posisi mesh aslimu)
+        // Depan (Kiri & Kanan)
+        addSpotLight(0.75, 0.85, 2.1);
+        addSpotLight(-0.75, 0.85, 2.1);
+        // Belakang (Kiri & Kanan)
+        addPointLight(0.65, 0.95, -2.35);
+        addPointLight(-0.65, 0.95, -2.35);
+
+        carModel.userData.lightsInitialized = true;
+    }
+
+    // --- B. LOGIKA ON/OFF ---
+    
+    // 1. Atur Visual Mesh (Glowing Effect)
+    // Intensity tinggi (5 atau 10) agar efek Bloom bekerja maksimal
+    if (carModel.userData.meshLampuDepan) {
+        carModel.userData.meshLampuDepan.material.emissiveIntensity = turnOn ? 10 : 0;
+    }
+    if (carModel.userData.meshLampuBelakang) {
+        carModel.userData.meshLampuBelakang.material.emissiveIntensity = turnOn ? 5 : 0;
+    }
+
+    // 2. Atur Sumber Cahaya (Sorotan)
+    carModel.userData.lightSources.forEach(item => {
+        if (item.type === 'head') {
+            item.light.intensity = turnOn ? 30 : 0; // Headlight terang
+        } else {
+            item.light.intensity = turnOn ? 3 : 0;  // Taillight redup
+        }
+    });
+}
 
 // ==========================================
 // 3. FUNGSI UPDATE CAR (ANIMASI + PHYSICS)
@@ -740,9 +823,9 @@ function scene_City() {
        // Reset state
         carSettings.autoDrive = false; 
         carSpeed = 0;
-
+        toggleCarLights(false);
         // 2. Load Skenario Pergerakan
-Director.loadScenario((delta, timeInShot) => {
+        Director.loadScenario((delta, timeInShot) => {
             
             // ===============================================
             // FASE 1: INTRO (0s - 3s)
@@ -762,6 +845,7 @@ Director.loadScenario((delta, timeInShot) => {
             else {
                 // A. Nyalakan Mesin & Gas
                 if (!carSettings.autoDrive) {
+                    toggleCarLights(true);
                     carSettings.autoDrive = true;
                     carSettings.maxSpeed = 0.8; // Kecepatan sedang
                 }
