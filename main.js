@@ -698,6 +698,30 @@ function scene_TestMode() {
     });
 }
 
+function scene_BridgeDesign() {
+    coreLoadMap('bridge_design.glb', () => {
+        setSpawn(0, 0, 0, 0);
+        lightingThemes.daylight();
+        // Tidak ada cinematic, langsung main
+    });
+}
+
+function scene_City() {
+    coreLoadMap('city_for_my_game.glb', () => {
+        setSpawn(100, -10, -255, Math.PI * 2 - 0.1);
+        lightingThemes.daylight();
+        // Tidak ada cinematic, langsung main
+    });
+}
+
+function scene_DesertRoad() {
+    coreLoadMap('desert_road_segment_scan.glb', () => {
+        setSpawn(0, 500, 0, 0);
+        lightingThemes.daylight();
+        // Tidak ada cinematic, langsung main
+    });
+}
+
 // --- REGISTRY  MAP---
 const sceneRegistry = {
     'American Underpass': scene_AmericanUnderpass,
@@ -711,6 +735,9 @@ const sceneRegistry = {
     'Road to Mestia': scene_Mestia,
     'Road with Trees': scene_TreesRoad,
     'Tunnel Road': scene_TunnelRoad,
+    'bridge_design': scene_BridgeDesign,
+    'City': scene_City,
+    'Desert road': scene_DesertRoad,
     'Test Mode (Debug)': scene_TestMode
 };
 
