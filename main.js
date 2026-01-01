@@ -401,11 +401,10 @@ function updateCar() {
     raycaster.set(rayOrigin, downVector);
     const intersects = raycaster.intersectObject(currentMapModel, true);
     if (intersects.length > 0) {
-      
-      const groundOffset = 0.02 * currentScale; 
-        
-        // Update posisi Y mobil menempel ke aspal
-        carModel.position.y = intersects[0].point.y + groundOffset;
+      const groundOffset = 0.02 * currentScale;
+
+      // Update posisi Y mobil menempel ke aspal
+      carModel.position.y = intersects[0].point.y + groundOffset;
     } else {
       // Fallback jika mobil "terbang" keluar map (Gravity sederhana)
       carModel.position.y -= 0.5;
@@ -629,7 +628,7 @@ function coreLoadMap(fileName, onMapLoaded) {
   }
 
   const path = `./env/${fileName}`;
-  
+
   gltfLoader.load(
     path,
     (gltf) => {
@@ -659,18 +658,18 @@ function coreLoadMap(fileName, onMapLoaded) {
 
 // Fungsi Bantuan Baru: Menangani penutupan layar loading & transisi
 function finishLoading() {
-    const loadingDiv = document.getElementById("loading");
-    if (loadingDiv) loadingDiv.style.display = "none";
+  const loadingDiv = document.getElementById("loading");
+  if (loadingDiv) loadingDiv.style.display = "none";
 
-    // Cari elemen transisi global dan hilangkan (Opacity 0)
-    // Kita gunakan ID yang akan kita pasang di langkah berikutnya
-    const globalCurtain = document.getElementById("global-fade-curtain");
-    if (globalCurtain) {
-        // Beri sedikit delay agar tidak kaget (0.5 detik setelah render siap)
-        setTimeout(() => {
-            globalCurtain.style.opacity = "0";
-        }, 500); 
-    }
+  // Cari elemen transisi global dan hilangkan (Opacity 0)
+  // Kita gunakan ID yang akan kita pasang di langkah berikutnya
+  const globalCurtain = document.getElementById("global-fade-curtain");
+  if (globalCurtain) {
+    // Beri sedikit delay agar tidak kaget (0.5 detik setelah render siap)
+    setTimeout(() => {
+      globalCurtain.style.opacity = "0";
+    }, 500);
+  }
 }
 function setSpawn(x, y, z, rotationY = 0) {
   if (carModel) {
@@ -800,30 +799,114 @@ function scene_HokkaidoSnow() {
 }
 
 function scene_MountainRoad() {
-  console.log("🎬 Map: Mountain Road");
+  console.log("🎬 Map 3: Mountain Road (Short Turn Fix)");
+
+  if (typeof AutoShowcase !== "undefined") AutoShowcase.active = false;
+
   coreLoadMap("mountain_road_scene.glb", () => {
-    setSpawn(-1.12,10,-2.52, Math.PI * 2 +0.5);
-    // setSpawn(0.12,10,3.89, Math.PI * 2 +0.5); jika mau dari arah lain
+    // 1. SETUP DASAR
+    setSpawn(-1.12, 10.0, -2.52, Math.PI * 2 + 0.5);
 
     scaleParams.autoScale = false;
     if (carModel) carModel.scale.set(0.01, 0.01, 0.01);
     if (scaleParams) scaleParams.size = 0.01;
+
     lightingThemes.daylight();
+    toggleCarLights(false);
 
-    
+    camera.near = 0.001;
+    camera.updateProjectionMatrix();
 
+    carSettings.autoDrive = false;
+    carSettings.maxSpeed = 0.8;
+    carSettings.acceleration = 0.01;
+    carSettings.turnSpeed = 0.05;
+    carSpeed = 0;
+
+    // 2. SKENARIO (TIMER: LURUS -> BELOK DIKIT -> LURUS)
+    Director.loadScenario((delta, t) => {
+      // === FASE 1: PERSIAPAN (0s - 2s) ===
+      if (t < 1.0) {
+        carSpeed = 0;
+        steeringAngle = 0;
+      }
+
+      // === FASE 2: JALAN LURUS AWAL (2s - 4s) ===
+      else if (t >= 1.0 && t < 5.0) {
+        if (!carSettings.autoDrive) carSettings.autoDrive = true;
+        steeringAngle = 0;
+      }
+
+      // === FASE 3: BELOK KANAN SEBENTAR (4s - 5.5s) ===
+      // Durasi belok cuma 1.5 detik.
+      // Jika masih terlalu lama, ubah '5.5' menjadi '4.5' atau '5.0'
+      else if (t >= 5.0 && t < 5.5) {
+        steeringAngle = -0.4; // Visual Setir Kanan
+        carModel.rotation.y -= 0.038; // Body Mobil Putar Kanan
+      }
+      // === FASE 4: KEMBALI LURUS
+      else if (t >= 5.5 && t < 9.5) {
+        steeringAngle = 0;
+      }
+
+      // === FASE 5: Belok kanan
+      else if (t >= 9.5 && t < 10.0) {
+        steeringAngle = -0.4; // Visual Setir Kanan
+        carModel.rotation.y -= 0.025; // Body Mobil Putar Kanan
+      }
+
+      // === FASE 6: KEMBALI LURUS
+      else if (t >= 10.0 && t < 14.0) {
+        steeringAngle = 0;
+      }
+
+      // === FASE 7: Belok Kiri
+      else if (t >= 14.0 && t < 14.5) {
+        steeringAngle = -0.4; // Visual Setir Kanan
+        carModel.rotation.y -= -0.015; // Body Mobil Putar Kanan
+      }
+
+      // === FASE 8: KEMBALI LURUS
+      else if (t >= 14.5 && t < 20.0) {
+        steeringAngle = 0;
+      }
+
+      // === FASE 9: Belok Kiri
+      else if (t >= 20.0 && t < 20.5) {
+        steeringAngle = -0.4; // Visual Setir Kanan
+        carModel.rotation.y -= -0.078; // Body Mobil Putar Kanan
+      }
+
+      // === FASE 4: KEMBALI LURUS (5.5s ke atas) ===
+      else {
+        steeringAngle = 0; // Visual Setir Lurus Kembali
+        // Kita tidak mereset rotasi body (biar tetap menghadap arah baru)
+        // Tapi kita stop perintah 'rotation.y -= ...' agar tidak muter terus.
+      }
+
+      // === LOGIKA KAMERA (TETAP) ===
+      const distOffset = new THREE.Vector3(0.0, 0.04, -0.08);
+      distOffset.applyQuaternion(carModel.quaternion);
+
+      const worldCam = carModel.position.clone().add(distOffset);
+      camera.position.lerp(worldCam, 0.2);
+
+      const targetLook = carModel.position.clone();
+      targetLook.y += 0.02;
+      controls.target.lerp(targetLook, 0.2);
+    });
+
+    Director.play();
   });
 }
-
 function scene_ReefCoast() {
   console.log("🎬 Map: Reef & Coastal");
   coreLoadMap("reef_and_coastal_road.glb", () => {
-    setSpawn(63,15,38, Math.PI * 2);
+    setSpawn(63, 15, 38, Math.PI * 2);
 
-        scaleParams.autoScale = false;
+    scaleParams.autoScale = false;
     if (carModel) carModel.scale.set(0.5, 0.5, 0.5);
     if (scaleParams) scaleParams.size = 0.5;
-
 
     lightingThemes.clear(); // Laut cerah
   });
@@ -1059,24 +1142,24 @@ function scene_City() {
   // ============================================================
   // 1. SETUP FADE OVERLAY (Layar Hitam Khusus Scene Ini)
   // ============================================================
-  let fadeOverlay = document.getElementById('cinematic-fade-overlay');
-  
+  let fadeOverlay = document.getElementById("cinematic-fade-overlay");
+
   if (!fadeOverlay) {
-      fadeOverlay = document.createElement('div');
-      fadeOverlay.id = 'cinematic-fade-overlay';
-      fadeOverlay.style.position = 'fixed';
-      fadeOverlay.style.top = '0';
-      fadeOverlay.style.left = '0';
-      fadeOverlay.style.width = '100vw';
-      fadeOverlay.style.height = '100vh';
-      fadeOverlay.style.backgroundColor = 'black';
-      fadeOverlay.style.opacity = '0';      
-      fadeOverlay.style.pointerEvents = 'none'; 
-      fadeOverlay.style.zIndex = '9999';    
-      fadeOverlay.style.transition = 'opacity 0.1s linear'; 
-      document.body.appendChild(fadeOverlay);
+    fadeOverlay = document.createElement("div");
+    fadeOverlay.id = "cinematic-fade-overlay";
+    fadeOverlay.style.position = "fixed";
+    fadeOverlay.style.top = "0";
+    fadeOverlay.style.left = "0";
+    fadeOverlay.style.width = "100vw";
+    fadeOverlay.style.height = "100vh";
+    fadeOverlay.style.backgroundColor = "black";
+    fadeOverlay.style.opacity = "0";
+    fadeOverlay.style.pointerEvents = "none";
+    fadeOverlay.style.zIndex = "9999";
+    fadeOverlay.style.transition = "opacity 0.1s linear";
+    document.body.appendChild(fadeOverlay);
   } else {
-      fadeOverlay.style.opacity = '0';
+    fadeOverlay.style.opacity = "0";
   }
 
   coreLoadMap("city_for_my_game.glb", () => {
@@ -1093,7 +1176,7 @@ function scene_City() {
     carSpeed = 0;
 
     // Pastikan lampu mati dulu (nanti dinyalakan startEngine)
-    // updateCarLights(false, false); 
+    // updateCarLights(false, false);
 
     // --- ANTI-GLITCH CAMERA START ---
     if (carModel) {
@@ -1112,25 +1195,24 @@ function scene_City() {
 
     // 4. SKENARIO SUTRADARA
     Director.loadScenario((delta, t) => {
-      
       // ====================================================
       // 🔥 LOGIKA PINDAH SCENE (AUTO SWITCH) 🔥
       // ====================================================
       if (t > 22.0) {
-        carSpeed = 0; 
+        carSpeed = 0;
 
         // Cek agar kode ini hanya jalan 1 kali saja
         if (!transitionTriggered) {
-            transitionTriggered = true;
-            console.log("🎬 City Scene Selesai. Pindah ke Bridge...");
+          transitionTriggered = true;
+          console.log("🎬 City Scene Selesai. Pindah ke Bridge...");
 
-            // 1. Sembunyikan overlay scene ini (agar tidak menumpuk dengan global transition)
-            if (fadeOverlay) fadeOverlay.style.opacity = '0';
+          // 1. Sembunyikan overlay scene ini (agar tidak menumpuk dengan global transition)
+          if (fadeOverlay) fadeOverlay.style.opacity = "0";
 
-            // 2. Panggil Global Transition ke Map Berikutnya
-            triggerTransition(() => {
-                loadMap("2. bridge_design");
-            });
+          // 2. Panggil Global Transition ke Map Berikutnya
+          triggerTransition(() => {
+            loadMap("2. bridge_design");
+          });
         }
         return;
       }
@@ -1145,22 +1227,20 @@ function scene_City() {
           // Panggil startEngine() agar lampu nyala realistis
           carSettings.autoDrive = true;
           toggleCarLights(true);
-        
         }
       }
       // FASE NGEREM (Detik 16.0++)
       else if (t >= 16.0) {
         carSettings.autoDrive = false;
-        carSpeed *= 0.90; // Ngerem dalam kegelapan
+        carSpeed *= 0.9; // Ngerem dalam kegelapan
       }
 
       // LOGIKA BELOK
       if (t > 3.5 && t < 4.0) {
         const turnPower = THREE.MathUtils.smoothstep(t, 3.5, 4.0);
-        carModel.rotation.y -= 0.025 * turnPower; 
+        carModel.rotation.y -= 0.025 * turnPower;
         steeringAngle = -0.5 * turnPower;
-      } 
-      else if (t >= 4.0) {
+      } else if (t >= 4.0) {
         steeringAngle += (0 - steeringAngle) * 0.1;
       }
 
@@ -1172,12 +1252,12 @@ function scene_City() {
       const fadeDuration = 3.0;
 
       if (t > fadeStart) {
-          const progress = (t - fadeStart) / fadeDuration;
-          const opacity = Math.min(Math.max(progress, 0), 1);
-          
-          if (fadeOverlay) fadeOverlay.style.opacity = opacity;
+        const progress = (t - fadeStart) / fadeDuration;
+        const opacity = Math.min(Math.max(progress, 0), 1);
+
+        if (fadeOverlay) fadeOverlay.style.opacity = opacity;
       } else {
-          if (fadeOverlay) fadeOverlay.style.opacity = 0;
+        if (fadeOverlay) fadeOverlay.style.opacity = 0;
       }
 
       // ===============================================
@@ -1239,22 +1319,22 @@ function scene_City() {
       else {
         // --- LOGIKA MINGGIR KE TROTOAR ---
         if (!safeSpot) {
-            safeSpot = camera.position.clone();
-            
-            const rightVec = new THREE.Vector3(1, 0, 0); 
-            rightVec.applyQuaternion(camera.quaternion);
-            rightVec.y = 0; 
-            rightVec.normalize();
-            rightVec.multiplyScalar(7.0); 
-            
-            safeSpot.add(rightVec);
-            safeSpot.y = 2.0; 
+          safeSpot = camera.position.clone();
+
+          const rightVec = new THREE.Vector3(1, 0, 0);
+          rightVec.applyQuaternion(camera.quaternion);
+          rightVec.y = 0;
+          rightVec.normalize();
+          rightVec.multiplyScalar(7.0);
+
+          safeSpot.add(rightVec);
+          safeSpot.y = 2.0;
         }
 
         camera.position.lerp(safeSpot, 0.08);
 
         if (carModel) {
-             controls.target.lerp(carModel.position, 0.1);
+          controls.target.lerp(carModel.position, 0.1);
         }
       }
     });
@@ -1888,9 +1968,9 @@ function triggerTransition(callback) {
 
     // ❌ KITA HAPUS BAGIAN INI (Auto Fade Out)
     // setTimeout(() => { fadeCurtain.style.opacity = "0"; }, 800);
-    
+
     // Biarkan layar tetap GELAP sampai coreLoadMap memanggil finishLoading()
-  }, 600); 
+  }, 600);
 }
 // ==========================================
 // 15. AUTO SHOWCASE SYSTEM
