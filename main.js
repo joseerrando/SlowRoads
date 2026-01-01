@@ -779,15 +779,29 @@ function scene_HokkaidoSnow() {
 function scene_MountainRoad() {
   console.log("🎬 Map: Mountain Road");
   coreLoadMap("mountain_road_scene.glb", () => {
-    setSpawn(0, 2, 0, 0);
+    setSpawn(-1.12,10,-2.52, Math.PI * 2 +0.5);
+    // setSpawn(0.12,10,3.89, Math.PI * 2 +0.5); jika mau dari arah lain
+
+    scaleParams.autoScale = false;
+    if (carModel) carModel.scale.set(0.01, 0.01, 0.01);
+    if (scaleParams) scaleParams.size = 0.01;
     lightingThemes.daylight();
+
+    
+
   });
 }
 
 function scene_ReefCoast() {
   console.log("🎬 Map: Reef & Coastal");
   coreLoadMap("reef_and_coastal_road.glb", () => {
-    setSpawn(20, 10, -50, Math.PI / 10);
+    setSpawn(44.9,9,-35.76, Math.PI / 10);
+
+        scaleParams.autoScale = false;
+    if (carModel) carModel.scale.set(0.5, 0.5, 0.5);
+    if (scaleParams) scaleParams.size = 0.5;
+
+
     lightingThemes.clear(); // Laut cerah
   });
 }
