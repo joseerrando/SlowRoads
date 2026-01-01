@@ -1034,51 +1034,51 @@ function scene_City() {
 
     toggleCarLights(false);
 
-    // --- ANTI-GLITCH CAMERA ---
-    if (carModel) {
-      const startAngle = 0.5;
-      const startDist = 5.5;
-      const offsetX = Math.sin(startAngle) * startDist;
-      const offsetZ = Math.cos(startAngle) * startDist;
-      camera.position.set(carModel.position.x + offsetX, carModel.position.y + 1.5, carModel.position.z + offsetZ);
-      controls.target.copy(carModel.position);
-      camera.updateProjectionMatrix();
-    }
-
-    // 3. SKENARIO SUTRADARA
     Director.loadScenario((delta, t) => {
-      if (t > 18.0) {
-        carSpeed = 0;
+      // Perpanjang durasi scene sampai 20 detik biar kelihatan berhentinya
+      if (t > 20.0) {
+        carSpeed = 0; // Pastikan berhenti total
         return;
       }
 
-      // === A. LOGIKA MOBIL ===
+      // ===============================================
+      // A. LOGIKA MOBIL (JALAN -> JAUH -> BERHENTI)
+      // ===============================================
 
-      // JALAN (3.0s)
-      if (t > 3.0 && t < 14.0) {
+      // FASE JALAN (Detik 3.0 s/d 15.0)
+      if (t > 3.0 && t < 15.0) {
         if (!carSettings.autoDrive) {
           carSettings.autoDrive = true;
           toggleCarLights(true);
         }
       }
 
-      // KOREKSI JALUR (3.5s - 4.5s)
-      if (t > 3.5 && t < 4.5) {
-        const turnPower = THREE.MathUtils.smoothstep(t, 3.5, 4.5);
-        carModel.rotation.y -= 0.015 * turnPower;
-        steeringAngle = -0.3 * turnPower;
-      } else if (t >= 4.5 && t < 14.0) {
+      // FASE BERHENTI / PENGEREMAN (Detik 15.0++)
+      else if (t >= 15.0) {
+        // Matikan gas
+        carSettings.autoDrive = false;
+        
+        // Efek Pengereman (Deceleration)
+        // Kalikan speed dengan 0.92 setiap frame, mobil akan melambat halus lalu berhenti
+        carSpeed *= 0.92; 
+        
+        // (Opsional) Nyalakan lampu rem merah terang jika mau
+        // if (carModel.userData.meshLampuBelakang) carModel.userData.meshLampuBelakang.material.emissiveIntensity = 50;
+      }
+
+      // --- LOGIKA BELOK (Sama seperti sebelumnya) ---
+      if (t > 3.5 && t < 4.0) {
+        const turnPower = THREE.MathUtils.smoothstep(t, 3.5, 4.0);
+        carModel.rotation.y -= 0.025 * turnPower; 
+        steeringAngle = -0.5 * turnPower;
+      } 
+      else if (t >= 4.0) {
         steeringAngle += (0 - steeringAngle) * 0.1;
       }
 
-      // STOP (14.0s)
-      else if (t >= 14.0) {
-        carSettings.autoDrive = false;
-        carSpeed *= 0.92;
-        steeringAngle *= 0.9;
-      }
-
-      // === B. LOGIKA KAMERA (PERBAIKAN FOKUS DEPAN) ===
+      // ===============================================
+      // B. LOGIKA KAMERA (STATIC ENDING)
+      // ===============================================
 
       // SHOT 1: INTRO (0s - 3s)
       if (t < 3.0) {
@@ -1105,29 +1105,17 @@ function scene_City() {
         controls.target.lerp(lookTarget, 0.1);
       }
 
-      // SHOT 3: LOW FRONT REVEAL (8s - Selesai)
-      else {
-        const swingDuration = 5.0;
+      // SHOT 3: LOW FRONT REVEAL (8s - 12s)
+      else if (t >= 8.0 && t < 12.0) {
+        const swingDuration = 4.0;
         const rawProgress = (t - 8.0) / swingDuration;
-        const progress = THREE.MathUtils.clamp(rawProgress, 0, 1);
-        const smoothProgress = THREE.MathUtils.smoothstep(progress, 0, 1);
+        const smoothProgress = THREE.MathUtils.smoothstep(rawProgress, 0, 1);
 
-        // --- PERBAIKAN DI SINI ---
-
-        // 1. RADIUS (Jarak Kamera)
-        // Mundur lebih jauh (sampai 8.5 meter) biar kelihatan seluruh bumper
         const currentRadius = THREE.MathUtils.lerp(3.0, 8.5, smoothProgress);
+        const currentAngle = THREE.MathUtils.lerp(Math.PI / 2, 0.05, smoothProgress);
 
-        // 2. SUDUT (Angle)
-        const startAngle = Math.PI / 2;
-        const endAngle = 0.05; // Hampir lurus depan
-        const currentAngle = THREE.MathUtils.lerp(startAngle, endAngle, smoothProgress);
-
-        // 3. POSISI KAMERA (Rendah & Melengkung)
         const localX = Math.sin(currentAngle) * currentRadius;
         const localZ = Math.cos(currentAngle) * currentRadius;
-
-        // Tinggi Kamera: Tetap rendah (0.6) biar kelihatan sangar, jangan naik ke 1.5
         const localY = THREE.MathUtils.lerp(0.5, 0.6, smoothProgress);
 
         const relOffset = new THREE.Vector3(localX, localY, localZ);
@@ -1135,17 +1123,30 @@ function scene_City() {
 
         camera.position.lerp(worldCam, 0.1);
 
-        // 4. TARGET FOKUS (PENTING: MAJUKAN KE BUMPER)
-        // Sebelumnya Z target = 0 (Tengah mobil/Kaca).
-        // Sekarang Z target = 2.5 (Ujung depan mobil/Bumper).
         const targetX = THREE.MathUtils.lerp(0.8, 0.0, smoothProgress);
-        const targetY = THREE.MathUtils.lerp(0.35, 0.4, smoothProgress); // Target sejajar lampu
-        const targetZ = THREE.MathUtils.lerp(1.4, 3.5, smoothProgress); // MAJU KE DEPAN
+        const targetY = THREE.MathUtils.lerp(0.35, 0.4, smoothProgress);
+        const targetZ = THREE.MathUtils.lerp(1.4, 3.5, smoothProgress);
 
         const localTarget = new THREE.Vector3(targetX, targetY, targetZ);
         const worldTarget = localTarget.applyMatrix4(carModel.matrixWorld);
 
         controls.target.lerp(worldTarget, 0.3);
+      }
+
+      // ----------------------------------------------------
+      // SHOT 4: "STATIC WATCH" (12s - 20s)
+      // ----------------------------------------------------
+      else {
+        // KAMERA: Diam / Mundur pelan (Floating)
+        camera.translateZ(delta * 0.2); 
+        camera.position.y += delta * 0.05;
+
+        // FOKUS: Tilt Up pelan ke langit, TIDAK LAGI IKUT MOBIL
+        controls.target.y += delta * 0.3; 
+        
+        // Karena kita tidak mengupdate controls.target.lerp(carModel),
+        // Mobil akan jalan menjauh sendiri, lalu ngerem di kejauhan.
+        // Sementara kamera asyik ngeliatin pemandangan.
       }
     });
 
