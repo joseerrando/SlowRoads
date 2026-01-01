@@ -795,7 +795,7 @@ function scene_MountainRoad() {
 function scene_ReefCoast() {
   console.log("🎬 Map: Reef & Coastal");
   coreLoadMap("reef_and_coastal_road.glb", () => {
-    setSpawn(44.9,9,-35.76, Math.PI / 10);
+    setSpawn(63,15,38, Math.PI * 2);
 
         scaleParams.autoScale = false;
     if (carModel) carModel.scale.set(0.5, 0.5, 0.5);
@@ -1029,17 +1029,42 @@ function scene_BridgeDesign() {
   });
 }
 function scene_City() {
-  console.log("🎬 Map: City (Front Grill Fix)");
+  console.log("🎬 Map: City (With Cinematic Transition)");
 
   if (typeof AutoShowcase !== "undefined") AutoShowcase.active = false;
 
+  // ============================================================
+  // 1. SETUP FADE OVERLAY (Layar Hitam)
+  // ============================================================
+  let fadeOverlay = document.getElementById('cinematic-fade-overlay');
+  
+  // Jika belum ada, kita buat div hitamnya
+  if (!fadeOverlay) {
+      fadeOverlay = document.createElement('div');
+      fadeOverlay.id = 'cinematic-fade-overlay';
+      fadeOverlay.style.position = 'fixed';
+      fadeOverlay.style.top = '0';
+      fadeOverlay.style.left = '0';
+      fadeOverlay.style.width = '100vw';
+      fadeOverlay.style.height = '100vh';
+      fadeOverlay.style.backgroundColor = 'black';
+      fadeOverlay.style.opacity = '0';      // Mulai transparan
+      fadeOverlay.style.pointerEvents = 'none'; // Tembus klik
+      fadeOverlay.style.zIndex = '9999';    // Paling depan
+      fadeOverlay.style.transition = 'opacity 0.1s linear'; // Smooth
+      document.body.appendChild(fadeOverlay);
+  } else {
+      // Reset opacity jika scene dimainkan ulang
+      fadeOverlay.style.opacity = '0';
+  }
+
   coreLoadMap("city_for_my_game.glb", () => {
-    // 1. POSISI SPAWN
+    // 2. POSISI SPAWN
     setSpawn(119.1, -9.35, -197.2, Math.PI / 10);
 
     lightingThemes.sunset();
 
-    // 2. SETTING MOBIL
+    // 3. SETTING MOBIL
     carSettings.autoDrive = false;
     carSettings.maxSpeed = 1.0;
     carSettings.acceleration = 0.015;
@@ -1048,39 +1073,48 @@ function scene_City() {
 
     toggleCarLights(false);
 
+    // --- ANTI-GLITCH CAMERA START ---
+    if (carModel) {
+      const startAngle = 0.5;
+      const startDist = 5;
+      const offsetX = Math.sin(startAngle) * startDist;
+      const offsetZ = Math.cos(startAngle) * startDist;
+      camera.position.set(carModel.position.x + offsetX, carModel.position.y + 1.5, carModel.position.z + offsetZ);
+      controls.target.copy(carModel.position);
+      camera.updateProjectionMatrix();
+    }
+
+    // Variabel untuk menyimpan titik aman (trotoar)
+    let safeSpot = null;
+
+    // 4. SKENARIO SUTRADARA
     Director.loadScenario((delta, t) => {
-      // Perpanjang durasi scene sampai 20 detik biar kelihatan berhentinya
-      if (t > 20.0) {
-        carSpeed = 0; // Pastikan berhenti total
+      // Stop total di detik 22 (setelah layar gelap total)
+      if (t > 22.0) {
+        carSpeed = 0; 
         return;
       }
 
       // ===============================================
-      // A. LOGIKA MOBIL (JALAN -> JAUH -> BERHENTI)
+      // A. LOGIKA MOBIL (Jalan -> Fade -> Ngerem)
       // ===============================================
 
-      // FASE JALAN (Detik 3.0 s/d 15.0)
-      if (t > 3.0 && t < 15.0) {
+      // FASE JALAN (Detik 3.0 s/d 16.0)
+      // Kita perpanjang waktu jalan sampai detik 16 agar mobil
+      // masih terlihat bergerak saat layar mulai gelap (Detik 13)
+      if (t > 3.0 && t < 16.0) {
         if (!carSettings.autoDrive) {
           carSettings.autoDrive = true;
           toggleCarLights(true);
         }
       }
-
-      // FASE BERHENTI / PENGEREMAN (Detik 15.0++)
-      else if (t >= 15.0) {
-        // Matikan gas
+      // FASE NGEREM (Detik 16.0++)
+      else if (t >= 16.0) {
         carSettings.autoDrive = false;
-        
-        // Efek Pengereman (Deceleration)
-        // Kalikan speed dengan 0.92 setiap frame, mobil akan melambat halus lalu berhenti
-        carSpeed *= 0.92; 
-        
-        // (Opsional) Nyalakan lampu rem merah terang jika mau
-        // if (carModel.userData.meshLampuBelakang) carModel.userData.meshLampuBelakang.material.emissiveIntensity = 50;
+        carSpeed *= 0.90; // Ngerem dalam kegelapan
       }
 
-      // --- LOGIKA BELOK (Sama seperti sebelumnya) ---
+      // LOGIKA BELOK
       if (t > 3.5 && t < 4.0) {
         const turnPower = THREE.MathUtils.smoothstep(t, 3.5, 4.0);
         carModel.rotation.y -= 0.025 * turnPower; 
@@ -1091,7 +1125,25 @@ function scene_City() {
       }
 
       // ===============================================
-      // B. LOGIKA KAMERA (STATIC ENDING)
+      // B. LOGIKA TRANSISI (FADE TO BLACK)
+      // ===============================================
+      // Mulai gelap: Detik 13.0
+      // Gelap total: Detik 16.0
+      const fadeStart = 13.0;
+      const fadeDuration = 3.0;
+
+      if (t > fadeStart) {
+          // Hitung persentase gelap (0.0 sampai 1.0)
+          const progress = (t - fadeStart) / fadeDuration;
+          const opacity = Math.min(Math.max(progress, 0), 1);
+          
+          if (fadeOverlay) fadeOverlay.style.opacity = opacity;
+      } else {
+          if (fadeOverlay) fadeOverlay.style.opacity = 0;
+      }
+
+      // ===============================================
+      // C. LOGIKA KAMERA
       // ===============================================
 
       // SHOT 1: INTRO (0s - 3s)
@@ -1100,7 +1152,6 @@ function scene_City() {
         const dist = 5.5;
         const camX = carModel.position.x + Math.sin(angle + 0.5) * dist;
         const camZ = carModel.position.z + Math.cos(angle + 0.5) * dist;
-
         camera.position.set(camX, carModel.position.y + 1.5, camZ);
         controls.target.copy(carModel.position);
       }
@@ -1110,7 +1161,6 @@ function scene_City() {
         const relOffset = new THREE.Vector3(2.5, 0.5, 1.5);
         const worldCam = relOffset.applyMatrix4(carModel.matrixWorld);
         worldCam.y += Math.random() * 0.01;
-
         camera.position.lerp(worldCam, 0.1);
 
         const lookTarget = carModel.position.clone();
@@ -1148,19 +1198,30 @@ function scene_City() {
       }
 
       // ----------------------------------------------------
-      // SHOT 4: "STATIC WATCH" (12s - 20s)
+      // SHOT 4: "SIDEWALK ESCAPE" & TRANSISI (12s - 22s)
       // ----------------------------------------------------
       else {
-        // KAMERA: Diam / Mundur pelan (Floating)
-        camera.translateZ(delta * 0.2); 
-        camera.position.y += delta * 0.05;
+        // --- LOGIKA MINGGIR KE TROTOAR ---
+        if (!safeSpot) {
+            safeSpot = camera.position.clone();
+            
+            const rightVec = new THREE.Vector3(1, 0, 0); 
+            rightVec.applyQuaternion(camera.quaternion);
+            rightVec.y = 0; 
+            rightVec.normalize();
+            rightVec.multiplyScalar(7.0); // Geser 7 meter
+            
+            safeSpot.add(rightVec);
+            safeSpot.y = 2.0; 
+        }
 
-        // FOKUS: Tilt Up pelan ke langit, TIDAK LAGI IKUT MOBIL
-        controls.target.y += delta * 0.3; 
-        
-        // Karena kita tidak mengupdate controls.target.lerp(carModel),
-        // Mobil akan jalan menjauh sendiri, lalu ngerem di kejauhan.
-        // Sementara kamera asyik ngeliatin pemandangan.
+        // 1. PINDAHKAN KAMERA KE TITIK AMAN
+        camera.position.lerp(safeSpot, 0.08);
+
+        // 2. FOKUS TETAP KE MOBIL (SAMBIL LAYAR MEREDUP)
+        if (carModel) {
+             controls.target.lerp(carModel.position, 0.1);
+        }
       }
     });
 
