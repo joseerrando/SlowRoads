@@ -944,7 +944,7 @@ function scene_BridgeDesign() {
         }
       }
 
-      // === B. LOGIKA KAMERA (TETAP SAMA) ===
+      // === B. KAMERA (REVISI DRASTIS) ===
 
       let relOffset, lookTarget;
 
@@ -955,48 +955,61 @@ function scene_BridgeDesign() {
         lookTarget = carModel.position.clone();
         lookTarget.y += 0.5;
       }
-      // SHOT 2: DRONE SIDE (4s - 10s)
-      // --- PERBAIKAN DI SINI ---
+
+      // SHOT 2: SWING TO DRONE SIDE (4s - 10s)
+      // Durasi: 6 Detik
       else if (t >= 4.0 && t < 10.0) {
-        const progress = (t - 4.0) / 21.0;
+        // FIX DURASI: (10 - 4 = 6.0)
+        const progress = (t - 4.0) / 6.0;
 
-        // Posisi Kamera:
-        // X: -5.0 (Cukup dekat agar mobil terlihat jelas)
-        const x = THREE.MathUtils.lerp(-5.0, -7.0, progress);
-
-        // Y: 2.5 naik ke 5.0 (Angle Drone Wajar)
-        const y = THREE.MathUtils.lerp(2.5, 5.0, progress);
-
-        // Z: 3.0 ke -2.0 (Bergerak dari Samping-Depan ke Samping-Belakang)
-        const z = THREE.MathUtils.lerp(3.0, -2.0, progress);
-
-        relOffset = new THREE.Vector3(x, y, z);
-
-        lookTarget = carModel.position.clone();
-
-        // FOKUS: Pas di tengah pintu/kaca
-        lookTarget.y += 0.8;
-
-        // TIDAK ADA lookTarget.z atau x tambahan.
-        // Ini menjamin mobil PERSIS di tengah layar.
-      }
-      // SHOT 3: SKY LIFT (10s+)
-      // Kamera naik ke langit saat mobil mendekati finish
-      else {
-        const progress = (t - 10.0) / 10.0;
+        // Gunakan smoothstep agar gerakan awal dan akhir pelan (tidak kaget)
         const smoothP = THREE.MathUtils.smoothstep(progress, 0, 1);
 
-        const x = THREE.MathUtils.lerp(-6.0, SKY_LINK_POS.x, smoothP);
-        const y = THREE.MathUtils.lerp(5.0, SKY_LINK_POS.y, smoothP);
-        const z = THREE.MathUtils.lerp(3.0, SKY_LINK_POS.z, smoothP);
+        // --- PERBAIKAN TRANSISI (SWING LOGIC) ---
+
+        // START (Diambil dari posisi terakhir Shot 1): X=2.0 (Kanan), Y=1.2 (Rendah), Z=-4.5 (Belakang)
+        // TARGET (Posisi Drone yang Anda mau):        X=-4.5 (Kiri),  Y=3.0 (Tinggi), Z=-1.0 (Samping)
+
+        // X: Gerak dari Kanan (2.0) memutar ke Kiri (-4.5)
+        const x = THREE.MathUtils.lerp(2.0, -11.5, smoothP);
+
+        // Y: Naik perlahan dari 1.2 ke 3.0
+        const y = THREE.MathUtils.lerp(1.2, 3.0, smoothP);
+
+        // Z: Maju perlahan dari Belakang (-4.5) ke Samping (-1.0)
+        const z = THREE.MathUtils.lerp(-4.5, -1.0, smoothP);
+
+        relOffset = new THREE.Vector3(x, y, z);
+        lookTarget = carModel.position.clone();
+
+        // Target fokus juga transisi halus dari 0.5 ke 0.8
+        lookTarget.y += THREE.MathUtils.lerp(0.5, 0.8, smoothP);
+        // Z Target tetap 0 agar di tengah
+      }
+
+      // SHOT 3: SKY LIFT (10s+)
+      // Update start position agar nyambung dengan akhir Shot 2
+      else {
+        const progress = (t - 10.0) / 10.0; // Asumsi sisa waktu 10 detik
+        const smoothP = THREE.MathUtils.smoothstep(progress, 0, 1);
+
+        // Start X harus sama dengan akhir Shot 2 (-4.5)
+        const x = THREE.MathUtils.lerp(-11.5, SKY_LINK_POS.x, smoothP);
+        // Start Y harus sama dengan akhir Shot 2 (3.0)
+        const y = THREE.MathUtils.lerp(3.0, SKY_LINK_POS.y, smoothP);
+        // Start Z harus sama dengan akhir Shot 2 (-1.0)
+        const z = THREE.MathUtils.lerp(-1.0, SKY_LINK_POS.z, smoothP);
 
         relOffset = new THREE.Vector3(x, y, z);
         lookTarget = carModel.position.clone();
       }
 
       const worldCam = relOffset.applyMatrix4(carModel.matrixWorld);
-      camera.position.lerp(worldCam, 0.08);
-      controls.target.lerp(lookTarget, 0.1);
+
+      // PERCEPAT RESPON KAMERA (0.08 -> 0.2)
+      // Agar kamera langsung nempel, tidak 'tertinggal'
+      camera.position.lerp(worldCam, 0.2);
+      controls.target.lerp(lookTarget, 0.2);
     });
     Director.play();
   });
