@@ -601,6 +601,7 @@ function coreLoadMap(fileName, onMapLoaded) {
     loadingDiv.innerHTML = '<div class="spinner"></div><span>Memuat Scene...</span>';
   }
 
+  // Hapus map lama
   if (currentMapModel) {
     scene.remove(currentMapModel);
     currentMapModel.traverse((child) => {
@@ -616,14 +617,16 @@ function coreLoadMap(fileName, onMapLoaded) {
   Director.stop();
   Director.pendingScenario = null;
 
+  // Khusus Test Mode
   if (fileName === "test") {
     createTestModel();
-    if (loadingDiv) loadingDiv.style.display = "none";
+    finishLoading(); // Panggil fungsi selesai
     if (onMapLoaded) onMapLoaded();
     return;
   }
 
   const path = `./env/${fileName}`;
+  
   gltfLoader.load(
     path,
     (gltf) => {
@@ -636,19 +639,36 @@ function coreLoadMap(fileName, onMapLoaded) {
       });
       scene.add(currentMapModel);
 
-      if (loadingDiv) loadingDiv.style.display = "none";
-      if (onMapLoaded) onMapLoaded();
-
       console.log(`✅ Map ${fileName} loaded!`);
+
+      // 🔥 FIX GLITCH: Panggil fungsi ini SAAT SELESAI LOAD
+      finishLoading();
+
+      if (onMapLoaded) onMapLoaded();
     },
     undefined,
     (err) => {
       console.error("Gagal load map:", err);
-      if (loadingDiv) loadingDiv.style.display = "none";
+      finishLoading(); // Tetap buka layar meski error agar tidak stuck gelap
     }
   );
 }
 
+// Fungsi Bantuan Baru: Menangani penutupan layar loading & transisi
+function finishLoading() {
+    const loadingDiv = document.getElementById("loading");
+    if (loadingDiv) loadingDiv.style.display = "none";
+
+    // Cari elemen transisi global dan hilangkan (Opacity 0)
+    // Kita gunakan ID yang akan kita pasang di langkah berikutnya
+    const globalCurtain = document.getElementById("global-fade-curtain");
+    if (globalCurtain) {
+        // Beri sedikit delay agar tidak kaget (0.5 detik setelah render siap)
+        setTimeout(() => {
+            globalCurtain.style.opacity = "0";
+        }, 500); 
+    }
+}
 function setSpawn(x, y, z, rotationY = 0) {
   if (carModel) {
     carModel.position.set(x, y, z);
@@ -1034,11 +1054,10 @@ function scene_City() {
   if (typeof AutoShowcase !== "undefined") AutoShowcase.active = false;
 
   // ============================================================
-  // 1. SETUP FADE OVERLAY (Layar Hitam)
+  // 1. SETUP FADE OVERLAY (Layar Hitam Khusus Scene Ini)
   // ============================================================
   let fadeOverlay = document.getElementById('cinematic-fade-overlay');
   
-  // Jika belum ada, kita buat div hitamnya
   if (!fadeOverlay) {
       fadeOverlay = document.createElement('div');
       fadeOverlay.id = 'cinematic-fade-overlay';
@@ -1048,13 +1067,12 @@ function scene_City() {
       fadeOverlay.style.width = '100vw';
       fadeOverlay.style.height = '100vh';
       fadeOverlay.style.backgroundColor = 'black';
-      fadeOverlay.style.opacity = '0';      // Mulai transparan
-      fadeOverlay.style.pointerEvents = 'none'; // Tembus klik
-      fadeOverlay.style.zIndex = '9999';    // Paling depan
-      fadeOverlay.style.transition = 'opacity 0.1s linear'; // Smooth
+      fadeOverlay.style.opacity = '0';      
+      fadeOverlay.style.pointerEvents = 'none'; 
+      fadeOverlay.style.zIndex = '9999';    
+      fadeOverlay.style.transition = 'opacity 0.1s linear'; 
       document.body.appendChild(fadeOverlay);
   } else {
-      // Reset opacity jika scene dimainkan ulang
       fadeOverlay.style.opacity = '0';
   }
 
@@ -1063,7 +1081,7 @@ function scene_City() {
     setSpawn(119.1, -9.35, -197.2, Math.PI / 10);
 
     lightingThemes.sunset();
-
+    toggleCarLights(false);
     // 3. SETTING MOBIL
     carSettings.autoDrive = false;
     carSettings.maxSpeed = 1.0;
@@ -1071,7 +1089,8 @@ function scene_City() {
     carSettings.turnSpeed = 0.03;
     carSpeed = 0;
 
-    toggleCarLights(false);
+    // Pastikan lampu mati dulu (nanti dinyalakan startEngine)
+    // updateCarLights(false, false); 
 
     // --- ANTI-GLITCH CAMERA START ---
     if (carModel) {
@@ -1084,14 +1103,32 @@ function scene_City() {
       camera.updateProjectionMatrix();
     }
 
-    // Variabel untuk menyimpan titik aman (trotoar)
+    // Variabel lokal
     let safeSpot = null;
+    let transitionTriggered = false; // <--- FLAG PENTING AGAR TIDAK LOOPING
 
     // 4. SKENARIO SUTRADARA
     Director.loadScenario((delta, t) => {
-      // Stop total di detik 22 (setelah layar gelap total)
+      
+      // ====================================================
+      // 🔥 LOGIKA PINDAH SCENE (AUTO SWITCH) 🔥
+      // ====================================================
       if (t > 22.0) {
         carSpeed = 0; 
+
+        // Cek agar kode ini hanya jalan 1 kali saja
+        if (!transitionTriggered) {
+            transitionTriggered = true;
+            console.log("🎬 City Scene Selesai. Pindah ke Bridge...");
+
+            // 1. Sembunyikan overlay scene ini (agar tidak menumpuk dengan global transition)
+            if (fadeOverlay) fadeOverlay.style.opacity = '0';
+
+            // 2. Panggil Global Transition ke Map Berikutnya
+            triggerTransition(() => {
+                loadMap("2. bridge_design");
+            });
+        }
         return;
       }
 
@@ -1100,12 +1137,12 @@ function scene_City() {
       // ===============================================
 
       // FASE JALAN (Detik 3.0 s/d 16.0)
-      // Kita perpanjang waktu jalan sampai detik 16 agar mobil
-      // masih terlihat bergerak saat layar mulai gelap (Detik 13)
       if (t > 3.0 && t < 16.0) {
         if (!carSettings.autoDrive) {
+          // Panggil startEngine() agar lampu nyala realistis
           carSettings.autoDrive = true;
           toggleCarLights(true);
+        
         }
       }
       // FASE NGEREM (Detik 16.0++)
@@ -1127,13 +1164,11 @@ function scene_City() {
       // ===============================================
       // B. LOGIKA TRANSISI (FADE TO BLACK)
       // ===============================================
-      // Mulai gelap: Detik 13.0
-      // Gelap total: Detik 16.0
+      // Mulai gelap: Detik 13.0, Gelap total: Detik 16.0
       const fadeStart = 13.0;
       const fadeDuration = 3.0;
 
       if (t > fadeStart) {
-          // Hitung persentase gelap (0.0 sampai 1.0)
           const progress = (t - fadeStart) / fadeDuration;
           const opacity = Math.min(Math.max(progress, 0), 1);
           
@@ -1197,9 +1232,7 @@ function scene_City() {
         controls.target.lerp(worldTarget, 0.3);
       }
 
-      // ----------------------------------------------------
       // SHOT 4: "SIDEWALK ESCAPE" & TRANSISI (12s - 22s)
-      // ----------------------------------------------------
       else {
         // --- LOGIKA MINGGIR KE TROTOAR ---
         if (!safeSpot) {
@@ -1209,16 +1242,14 @@ function scene_City() {
             rightVec.applyQuaternion(camera.quaternion);
             rightVec.y = 0; 
             rightVec.normalize();
-            rightVec.multiplyScalar(7.0); // Geser 7 meter
+            rightVec.multiplyScalar(7.0); 
             
             safeSpot.add(rightVec);
             safeSpot.y = 2.0; 
         }
 
-        // 1. PINDAHKAN KAMERA KE TITIK AMAN
         camera.position.lerp(safeSpot, 0.08);
 
-        // 2. FOKUS TETAP KE MOBIL (SAMBIL LAYAR MEREDUP)
         if (carModel) {
              controls.target.lerp(carModel.position, 0.1);
         }
@@ -1228,6 +1259,7 @@ function scene_City() {
     Director.play();
   });
 }
+
 function scene_DesertRoad() {
   coreLoadMap("desert_road_segment_scan.glb", () => {
     setSpawn(0, 500, 0, 0);
@@ -1835,6 +1867,7 @@ animate(0);
 // ==========================================
 
 const fadeCurtain = document.createElement("div");
+fadeCurtain.id = "global-fade-curtain"; // 🔥 TAMBAHKAN ID INI
 fadeCurtain.style.cssText = `
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: #000; opacity: 0; pointer-events: none;
@@ -1846,17 +1879,16 @@ function triggerTransition(callback) {
   // 1. Layar Gelap
   fadeCurtain.style.opacity = "1";
 
+  // 2. Tunggu sebentar (600ms) agar layar gelap sempurna, lalu load map
   setTimeout(() => {
-    // 2. Jalankan fungsi ganti map di saat layar gelap
     if (callback) callback();
 
-    // 3. Tunggu sebentar loading, lalu layar terang kembali
-    setTimeout(() => {
-      fadeCurtain.style.opacity = "0";
-    }, 800);
-  }, 600); // Waktu tunggu fade in selesai
+    // ❌ KITA HAPUS BAGIAN INI (Auto Fade Out)
+    // setTimeout(() => { fadeCurtain.style.opacity = "0"; }, 800);
+    
+    // Biarkan layar tetap GELAP sampai coreLoadMap memanggil finishLoading()
+  }, 600); 
 }
-
 // ==========================================
 // 15. AUTO SHOWCASE SYSTEM
 // ==========================================
