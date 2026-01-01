@@ -401,8 +401,11 @@ function updateCar() {
     raycaster.set(rayOrigin, downVector);
     const intersects = raycaster.intersectObject(currentMapModel, true);
     if (intersects.length > 0) {
-      // Offset sedikit (0.1 * scale) agar ban tidak tenggelam
-      carModel.position.y = intersects[0].point.y + 0.1 * currentScale;
+      
+      const groundOffset = 0.02 * currentScale; 
+        
+        // Update posisi Y mobil menempel ke aspal
+        carModel.position.y = intersects[0].point.y + groundOffset;
     } else {
       // Fallback jika mobil "terbang" keluar map (Gravity sederhana)
       carModel.position.y -= 0.5;
