@@ -988,13 +988,149 @@ function scene_ReefCoast() {
 }
 
 function scene_Highway() {
-  console.log("🎬 Map: Highway");
+  console.log("🎬 Map: Highway (TEST MODE: Tuning Duration)");
+
+  if (typeof AutoShowcase !== "undefined") AutoShowcase.active = false;
+
   coreLoadMap("road__highway.glb", () => {
-    setSpawn(0, 0.5, 0, 0);
+    // =========================================
+    // 1. DATA JALUR (FOCUS DISINI)
+    // =========================================
+    // Atur 'duration' agar mobil berhenti belok tepat waktu.
+    const TRACK_PATH = [
+      // --- TIKUNGAN 1 ---
+      {
+        x: 16.18,
+        z: -56.94, // 📍 Mulai Belok
+        turnVal: 0.2,
+        rotSpeed: -0.015,
+        duration: 0.8, // ⏱️ Coba ubah ini jika kurang/lebih
+        name: "Tikungan 1",
+      },
+
+      // --- TIKUNGAN 2 ---
+      {
+        x: 2.78,
+        z: -5.72, // 📍 Mulai Belok
+        turnVal: -0.2,
+        rotSpeed: 0.015,
+        duration: 0.4, // ⏱️ Coba ubah ini
+        name: "Tikungan 2",
+      },
+
+      // --- TIKUNGAN 3 ---
+      {
+        x: -22.46,
+        z: 40.15, // 📍 Mulai Belok
+        turnVal: 0.2,
+        rotSpeed: -0.015,
+        duration: 0.7, // ⏱️ Coba ubah ini
+        name: "Tikungan 3",
+      },
+    ];
+
+    // =========================================
+    // 2. SETUP (TETAP SAMA)
+    // =========================================
+    const INITIAL_ROT = 5.4;
+    setSpawn(20.39, 0.2, -60.41, INITIAL_ROT);
+
+    scaleParams.autoScale = true;
+    if (carModel) carModel.scale.set(1, 1, 1);
+    if (scaleParams) scaleParams.size = 1;
+
     lightingThemes.daylight();
+    toggleCarLights(true);
+
+    camera.near = 0.1;
+    camera.updateProjectionMatrix();
+
+    carSettings.autoDrive = false;
+    carSettings.maxSpeed = 0.8;
+    carSettings.acceleration = 0.02;
+    carSettings.turnSpeed = 0.05;
+    carSpeed = 0;
+
+    let currentTargetIndex = 0;
+    let currentRotSpeed = 0;
+
+    // === VARIABEL FIXED STEP ===
+    const FIXED_STEP = 1 / 60;
+    let accumulator = 0;
+    let physicsRotY = INITIAL_ROT;
+    let turnTimer = 0;
+
+    // =========================================
+    // 3. LOGIKA EKSEKUSI
+    // =========================================
+    Director.loadScenario((delta, t) => {
+      // A. FISIKA STABIL
+      accumulator += Math.min(delta, 0.1);
+
+      while (accumulator >= FIXED_STEP) {
+        if (t < 1.0) {
+          carSpeed = 0;
+        } else {
+          if (!carSettings.autoDrive) carSettings.autoDrive = true;
+
+          // 1. LOGIKA TIMER DURASI
+          if (turnTimer > 0) {
+            turnTimer -= FIXED_STEP;
+            if (turnTimer <= 0) {
+              console.log("⏹️ DURASI HABIS -> LURUS");
+              steeringAngle = 0;
+              currentRotSpeed = 0;
+              turnTimer = 0;
+            }
+          }
+
+          // 2. LOGIKA TRIGGER
+          if (currentTargetIndex < TRACK_PATH.length) {
+            const target = TRACK_PATH[currentTargetIndex];
+            const carPos = new THREE.Vector2(carModel.position.x, carModel.position.z);
+            const targetPos = new THREE.Vector2(target.x, target.z);
+
+            if (carPos.distanceTo(targetPos) < 1.5) {
+              console.log("▶️ START BELOK:", target.name);
+              steeringAngle = target.turnVal;
+              currentRotSpeed = target.rotSpeed;
+              turnTimer = target.duration; // Set Durasi
+              currentTargetIndex++;
+            }
+          }
+
+          // 3. Update Rotasi
+          if (currentRotSpeed !== 0) {
+            physicsRotY -= currentRotSpeed;
+          }
+        }
+        accumulator -= FIXED_STEP;
+      }
+
+      // B. VISUAL HALUS
+      if (carModel) {
+        const smoothFactor = Math.min(delta * 15.0, 1.0);
+        carModel.rotation.y = THREE.MathUtils.lerp(carModel.rotation.y, physicsRotY, smoothFactor);
+      }
+
+      // ====================================================
+      // 🎥 KAMERA NORMAL (TESTING MODE)
+      // ====================================================
+      // Posisi: Belakang Atas (Standard)
+      const distOffset = new THREE.Vector3(0.0, 3.0, -6.0);
+      distOffset.applyQuaternion(carModel.quaternion);
+
+      const worldCam = carModel.position.clone().add(distOffset);
+      camera.position.lerp(worldCam, 0.1); // Follow cepat
+
+      const targetLook = carModel.position.clone();
+      targetLook.y += 1.0;
+      controls.target.lerp(targetLook, 0.1);
+    });
+
+    Director.play();
   });
 }
-
 function scene_Mestia() {
   console.log("🎬 Map: Road to Mestia");
   coreLoadMap("road_to_mestia_svaneti.glb", () => {
@@ -1036,6 +1172,12 @@ function scene_BridgeDesign() {
   coreLoadMap("bridge_design.glb", () => {
     // 1. SPAWN POINT (TETAP)
     setSpawn(-190.02, 6.0, 6.39, 2.02);
+
+    // === TAMBAHAN PENTING (RESET UKURAN) ===
+    // Kembalikan mobil ke ukuran asli
+    scaleParams.autoScale = true;
+    if (carModel) carModel.scale.set(1, 1, 1);
+    if (scaleParams) scaleParams.size = 1;
 
     lightingThemes.daylight();
 
@@ -1240,6 +1382,12 @@ function scene_City() {
   coreLoadMap("city_for_my_game.glb", () => {
     // 2. POSISI SPAWN
     setSpawn(119.1, -9.35, -197.2, Math.PI / 10);
+
+    // === TAMBAHAN PENTING (RESET UKURAN) ===
+    // Kembalikan mobil ke ukuran asli
+    scaleParams.autoScale = true;
+    if (carModel) carModel.scale.set(1, 1, 1);
+    if (scaleParams) scaleParams.size = 1;
 
     lightingThemes.sunset();
     toggleCarLights(false);
