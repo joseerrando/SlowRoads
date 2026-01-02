@@ -808,26 +808,69 @@ function scene_MountainRoad() {
     // 1. SETTING JALUR (HYBRID SYSTEM)
     // =========================================
     const TRACK_PATH = [
+      // --- TIKUNGAN 1
       {
         x: -1.0,
         z: -2.28, // 📍 MULAI BELOK DISINI (Koordinat Anda)
         turnVal: -0.4, // Kekuatan Belok (Negatif = Kanan)
-        rotSpeed: 0.028, // Kecepatan putar body
-        duration: 0.73, // ⏱️ DURASI BELOK (Detik)
-        // Mobil akan belok selama 1 detik, lalu lurus otomatis.
-        name: "Tikungan Pertama",
+        rotSpeed: 0.03, // Kecepatan putar body
+        name: "Tikungan 1",
+      },
+      {
+        x: -0.99,
+        z: -2.23, // 📍 Koordinat Selesai (Contoh)
+        turnVal: 0.0, // Ban Lurus
+        rotSpeed: 0.0, // Stop Putar Body
+        name: "Selesai Tikungan 1 (Lurus)",
       },
 
-      // Contoh Tikungan Kedua (Nanti Anda isi sendiri)
-      /*
-        { 
-            x: -5.00, z: -10.00, 
-            turnVal: 0.4,       // Kiri
-            rotSpeed: -0.03,
-            duration: 1.5,      // Belok selama 1.5 detik
-            name: "Tikungan Kedua"
-        }
-        */
+      // --- TIKUNGAN 2
+      {
+        x: -0.96,
+        z: -1.85, // 📍 Koordinat dari Laporan Anda
+        turnVal: 0.4, // Ganti tanda: (-) Kanan, (+) Kiri
+        rotSpeed: 0.035, // ⚙️ INI PENGATUR KETAJAMAN BELOK
+        duration: 0.345, // Berapa lama dia belok
+        name: "Tikungan 2",
+      },
+
+      // --- TIKUNGAN 3
+      {
+        x: -1.04,
+        z: -1.47, // 📍 Koordinat dari Laporan Anda
+        turnVal: 0.4, // Ganti tanda: (-) Kanan, (+) Kiri
+        rotSpeed: -0.03, // ⚙️ INI PENGATUR KETAJAMAN BELOK
+        duration: 0.25, // Berapa lama dia belok
+        name: "Tikungan 3",
+      },
+
+      // --- TIKUNGAN 4
+      {
+        x: -1.02,
+        z: -1.13, // 📍 Koordinat dari Laporan Anda
+        turnVal: -0.4, // Ganti tanda: (-) Kanan, (+) Kiri
+        rotSpeed: -0.027, // ⚙️ INI PENGATUR KETAJAMAN BELOK
+        // duration: 0.85, // Berapa lama dia belok
+        name: "Tikungan 4",
+      },
+
+      {
+        x: -0.98,
+        z: -1.06, // 📍 Koordinat Selesai (Contoh)
+        turnVal: 0.0, // Ban Lurus
+        rotSpeed: 0.0, // Stop Putar Body
+        name: "Selesai Tikungan 4 (Lurus)",
+      },
+
+      // --- TIKUNGAN 5
+      {
+        x: -0.75,
+        z: -0.8, // 📍 Koordinat dari Laporan Anda
+        turnVal: -0.4, // Ganti tanda: (-) Kanan, (+) Kiri
+        rotSpeed: 0.035, // ⚙️ INI PENGATUR KETAJAMAN BELOK
+        duration: 0.35, // Berapa lama dia belok
+        name: "Tikungan 5",
+      },
     ];
 
     // =========================================
@@ -900,9 +943,19 @@ function scene_MountainRoad() {
           }
         }
 
-        // C. TERAPKAN ROTASI BODY (Jika sedang aktif)
+        // C. ROTASI BODY (DENGAN PEREDAM)
         if (currentRotSpeed !== 0) {
-          carModel.rotation.y -= currentRotSpeed;
+          // 1. Hitung FPS Factor (Anti-Lag)
+          const fpsFactor = delta / 0.0166;
+
+          // 2. GLOBAL REDUCER (PENGATUR KEKUATAN)
+          // Jika belokan terlalu drastis, KECILKAN angka ini.
+          // 1.0 = Kekuatan Penuh
+          // 0.6 = Kekuatan 60% (Lebih halus)
+          const GLOBAL_POWER = 0.33;
+
+          // 3. Terapkan Rumus
+          carModel.rotation.y -= currentRotSpeed * fpsFactor * GLOBAL_POWER;
         }
       }
 
