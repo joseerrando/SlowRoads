@@ -1851,42 +1851,66 @@ updateLighting();
 // Themes
 const lightingThemes = {
   daylight: () => {
+    // 1. RESET INTENSITAS
     lightingConfig.ambientIntensity = 1.0;
     lightingConfig.dirIntensity = 2.0;
+
+    // 2. RESET WARNA (INI YANG HILANG SEBELUMNYA)
+    // Harus dikembalikan ke Putih, kalau tidak dia pakai warna sisa dari scene Sunset
+    lightingConfig.ambientColor = "#ffffff";
+    lightingConfig.dirColor = "#ffffff";
+
+    // 3. Environment
     lightingConfig.skyColor = "#87CEEB";
+    lightingConfig.groundColor = "#8B4513";
+
     scene.background = new THREE.Color(0x87ceeb);
     if (scene.fog) scene.fog = null;
+
+    // Terapkan perubahan ke Three.js
     updateLighting();
+
+    // Update GUI (Opsional, biar slider warnanya ikut berubah putih di panel)
+    // Karena lil-gui membaca object reference, biasanya dia auto-update saat di-hover/klik,
+    // tapi secara visual di scene pasti sudah benar.
   },
+
   sunset: () => {
     lightingConfig.ambientIntensity = 0.8;
-    lightingConfig.ambientColor = "#ffcc99";
+    lightingConfig.ambientColor = "#ffcc99"; // Mengubah warna jadi oranye
     lightingConfig.dirIntensity = 1.5;
-    lightingConfig.dirColor = "#ff6600";
+    lightingConfig.dirColor = "#ff6600"; // Mengubah warna jadi merah
     lightingConfig.skyColor = "#ff9966";
     scene.background = new THREE.Color(0xff9966);
     if (scene.fog) scene.fog = null;
     updateLighting();
   },
+
   night: () => {
     lightingConfig.ambientIntensity = 0.2;
-    lightingConfig.ambientColor = "#333366";
+    lightingConfig.ambientColor = "#333366"; // Biru gelap
     lightingConfig.dirIntensity = 0.3;
+    lightingConfig.dirColor = "#ffffff"; // Reset directional ke putih (atau biru muda)
     lightingConfig.skyColor = "#000033";
     scene.background = new THREE.Color(0x000033);
     if (scene.fog) scene.fog = null;
     updateLighting();
   },
+
   foggy: () => {
     lightingConfig.ambientIntensity = 0.6;
+    lightingConfig.ambientColor = "#ffffff"; // Reset putih
     lightingConfig.dirIntensity = 0.8;
+    lightingConfig.dirColor = "#ffffff"; // Reset putih
+
     scene.fog = new THREE.Fog(0xaaaaaa, 10, 100);
     scene.background = new THREE.Color(0xaaaaaa);
     updateLighting();
   },
+
   clear: () => {
     scene.fog = null;
-    lightingThemes.daylight();
+    lightingThemes.daylight(); // Reuse logika daylight yang sudah diperbaiki
   },
 };
 
