@@ -988,49 +988,48 @@ function scene_ReefCoast() {
 }
 
 function scene_Highway() {
-  console.log("🎬 Map: Highway (TEST MODE: Tuning Duration)");
+  console.log("🎬 Map: Highway (Final: Fixed Step + High Angle Cam + Zoom)");
 
   if (typeof AutoShowcase !== "undefined") AutoShowcase.active = false;
 
   coreLoadMap("road__highway.glb", () => {
     // =========================================
-    // 1. DATA JALUR (FOCUS DISINI)
+    // 1. DATA JALUR (DATA FIX ANDA)
     // =========================================
-    // Atur 'duration' agar mobil berhenti belok tepat waktu.
     const TRACK_PATH = [
       // --- TIKUNGAN 1 ---
       {
         x: 16.18,
-        z: -56.94, // 📍 Mulai Belok
+        z: -56.94,
         turnVal: 0.2,
         rotSpeed: -0.015,
-        duration: 0.8, // ⏱️ Coba ubah ini jika kurang/lebih
+        duration: 0.8, // ✅ Data Anda
         name: "Tikungan 1",
       },
 
       // --- TIKUNGAN 2 ---
       {
         x: 2.78,
-        z: -5.72, // 📍 Mulai Belok
+        z: -5.72,
         turnVal: -0.2,
         rotSpeed: 0.015,
-        duration: 0.4, // ⏱️ Coba ubah ini
+        duration: 0.4, // ✅ Data Anda
         name: "Tikungan 2",
       },
 
       // --- TIKUNGAN 3 ---
       {
         x: -22.46,
-        z: 40.15, // 📍 Mulai Belok
+        z: 40.15,
         turnVal: 0.2,
         rotSpeed: -0.015,
-        duration: 0.7, // ⏱️ Coba ubah ini
+        duration: 0.7, // ✅ Data Anda
         name: "Tikungan 3",
       },
     ];
 
     // =========================================
-    // 2. SETUP (TETAP SAMA)
+    // 2. SETUP
     // =========================================
     const INITIAL_ROT = 5.4;
     setSpawn(20.39, 0.2, -60.41, INITIAL_ROT);
@@ -1042,7 +1041,8 @@ function scene_Highway() {
     lightingThemes.daylight();
     toggleCarLights(true);
 
-    camera.near = 0.1;
+    // ⚠️ PENTING: Near plane kecil agar saat masuk mobil tidak tembus pandang
+    camera.near = 0.05;
     camera.updateProjectionMatrix();
 
     carSettings.autoDrive = false;
@@ -1094,7 +1094,7 @@ function scene_Highway() {
               console.log("▶️ START BELOK:", target.name);
               steeringAngle = target.turnVal;
               currentRotSpeed = target.rotSpeed;
-              turnTimer = target.duration; // Set Durasi
+              turnTimer = target.duration;
               currentTargetIndex++;
             }
           }
@@ -1114,18 +1114,59 @@ function scene_Highway() {
       }
 
       // ====================================================
-      // 🎥 KAMERA NORMAL (TESTING MODE)
+      // 🎥 CINEMATIC CAMERA (HIGH ANGLE + ZOOM)
       // ====================================================
-      // Posisi: Belakang Atas (Standard)
-      const distOffset = new THREE.Vector3(0.0, 3.0, -6.0);
-      distOffset.applyQuaternion(carModel.quaternion);
 
-      const worldCam = carModel.position.clone().add(distOffset);
-      camera.position.lerp(worldCam, 0.1); // Follow cepat
+      let camOffset, lookTargetOffset;
 
-      const targetLook = carModel.position.clone();
-      targetLook.y += 1.0;
-      controls.target.lerp(targetLook, 0.1);
+      // SHOT 1: HIGH TOWER VIEW (0s - 3s)
+      // Sudut pandang dari atas belakang (Mirip GTA Classic / Micro Machines)
+      // Y=10 (Tinggi), Z=-8 (Agak belakang dikit)
+      if (t < 3.0) {
+        camOffset = new THREE.Vector3(0.0, 10.0, -8.0);
+        lookTargetOffset = new THREE.Vector3(0, 0.0, 8.0); // Lihat jauh ke depan
+      }
+
+      // SHOT 2: HELICOPTER SIDE VIEW (3s - 6s)
+      // Sudut pandang tinggi dari samping kanan
+      // X=12 (Kanan Jauh), Y=12 (Tinggi)
+      else if (t >= 3.0 && t < 6.0) {
+        camOffset = new THREE.Vector3(12.0, 12.0, -2.0);
+        lookTargetOffset = new THREE.Vector3(0, 0.0, 4.0);
+      }
+
+      // SHOT 3: DRONE -> DRIVER SEAT (6s ke atas)
+      // Dari atas (Y=15) turun masuk ke mobil
+      else {
+        const zoomStartTime = 6.0;
+        const zoomDuration = 4.0;
+
+        const rawProgress = (t - zoomStartTime) / zoomDuration;
+        const progress = Math.min(Math.max(rawProgress, 0), 1);
+        const smoothP = THREE.MathUtils.smoothstep(progress, 0, 1);
+
+        // Posisi Awal (Drone Sangat Tinggi)
+        const startPos = new THREE.Vector3(0.0, 15.0, -10.0);
+        const startLook = new THREE.Vector3(0, 0.0, 10.0);
+
+        // Posisi Akhir (Kursi Supir)
+        const endPos = new THREE.Vector3(0.35, 0.95, 0.1);
+        const endLook = new THREE.Vector3(0, 0.5, 20.0);
+
+        camOffset = new THREE.Vector3().lerpVectors(startPos, endPos, smoothP);
+        lookTargetOffset = new THREE.Vector3().lerpVectors(startLook, endLook, smoothP);
+      }
+
+      // --- PENERAPAN ---
+      const finalCamPos = camOffset.clone().applyQuaternion(carModel.quaternion);
+      const finalTargetPos = lookTargetOffset.clone().applyQuaternion(carModel.quaternion);
+
+      const worldCam = carModel.position.clone().add(finalCamPos);
+      const worldTarget = carModel.position.clone().add(finalTargetPos);
+
+      // Lerp 0.08 agar kamera terasa berat/sinematik
+      camera.position.lerp(worldCam, 0.08);
+      controls.target.lerp(worldTarget, 0.08);
     });
 
     Director.play();
