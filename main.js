@@ -799,13 +799,41 @@ function scene_HokkaidoSnow() {
 }
 
 function scene_MountainRoad() {
-  console.log("🎬 Map 3: Mountain Road (Short Turn Fix)");
+  console.log("🎬 Map 3: Mountain Road (Hybrid: Coord + Duration)");
 
   if (typeof AutoShowcase !== "undefined") AutoShowcase.active = false;
 
   coreLoadMap("mountain_road_scene.glb", () => {
-    // 1. SETUP DASAR
-    setSpawn(-1.12, 10.0, -2.52, Math.PI * 2 + 0.5);
+    // =========================================
+    // 1. SETTING JALUR (HYBRID SYSTEM)
+    // =========================================
+    const TRACK_PATH = [
+      {
+        x: -1.0,
+        z: -2.28, // 📍 MULAI BELOK DISINI (Koordinat Anda)
+        turnVal: -0.4, // Kekuatan Belok (Negatif = Kanan)
+        rotSpeed: 0.028, // Kecepatan putar body
+        duration: 0.73, // ⏱️ DURASI BELOK (Detik)
+        // Mobil akan belok selama 1 detik, lalu lurus otomatis.
+        name: "Tikungan Pertama",
+      },
+
+      // Contoh Tikungan Kedua (Nanti Anda isi sendiri)
+      /*
+        { 
+            x: -5.00, z: -10.00, 
+            turnVal: 0.4,       // Kiri
+            rotSpeed: -0.03,
+            duration: 1.5,      // Belok selama 1.5 detik
+            name: "Tikungan Kedua"
+        }
+        */
+    ];
+
+    // =========================================
+    // 2. SETUP DASAR
+    // =========================================
+    setSpawn(-1.14, 10, -2.53, 6.83);
 
     scaleParams.autoScale = false;
     if (carModel) carModel.scale.set(0.01, 0.01, 0.01);
@@ -823,68 +851,62 @@ function scene_MountainRoad() {
     carSettings.turnSpeed = 0.05;
     carSpeed = 0;
 
-    // 2. SKENARIO (TIMER: LURUS -> BELOK DIKIT -> LURUS)
+    // Status Sistem
+    let currentTargetIndex = 0;
+    let currentRotSpeed = 0;
+    let stopTurnTime = 0; // Waktu kapan harus berhenti belok
+
+    // =========================================
+    // 3. LOGIKA EKSEKUSI
+    // =========================================
     Director.loadScenario((delta, t) => {
-      // === FASE 1: PERSIAPAN (0s - 2s) ===
       if (t < 1.0) {
         carSpeed = 0;
-        steeringAngle = 0;
-      }
-
-      // === FASE 2: JALAN LURUS AWAL (2s - 4s) ===
-      else if (t >= 1.0 && t < 5.0) {
+      } else {
         if (!carSettings.autoDrive) carSettings.autoDrive = true;
-        steeringAngle = 0;
+
+        // A. CEK APAKAH WAKTUNYA KEMBALI LURUS?
+        // Jika waktu sekarang (t) sudah melewati batas waktu stop (stopTurnTime)
+        // DAN kita sedang dalam mode belok (stopTurnTime > 0)
+        if (stopTurnTime > 0 && t > stopTurnTime) {
+          console.log("⏹️ SELESAI BELOK -> LURUS");
+          steeringAngle = 0; // Luruskan setir
+          currentRotSpeed = 0; // Stop putar body
+          stopTurnTime = 0; // Reset timer
+        }
+
+        // B. CEK KOORDINAT START BELOK
+        if (currentTargetIndex < TRACK_PATH.length) {
+          const target = TRACK_PATH[currentTargetIndex];
+
+          const carPos = new THREE.Vector2(carModel.position.x, carModel.position.z);
+          const targetPos = new THREE.Vector2(target.x, target.z);
+          const dist = carPos.distanceTo(targetPos);
+
+          // Gunakan presisi tinggi (0.05)
+          if (dist < 0.05) {
+            console.log("▶️ MULAI BELOK:", target.name);
+
+            // 1. Eksekusi Belok
+            steeringAngle = target.turnVal;
+            currentRotSpeed = target.rotSpeed;
+
+            // 2. Set Kapan Harus Berhenti
+            // Waktu Stop = Waktu Sekarang + Durasi yang diinginkan
+            stopTurnTime = t + target.duration;
+
+            // 3. Lanjut ke antrian berikutnya
+            currentTargetIndex++;
+          }
+        }
+
+        // C. TERAPKAN ROTASI BODY (Jika sedang aktif)
+        if (currentRotSpeed !== 0) {
+          carModel.rotation.y -= currentRotSpeed;
+        }
       }
 
-      // === FASE 3: BELOK KANAN SEBENTAR (4s - 5.5s) ===
-      // Durasi belok cuma 1.5 detik.
-      // Jika masih terlalu lama, ubah '5.5' menjadi '4.5' atau '5.0'
-      else if (t >= 5.0 && t < 5.5) {
-        steeringAngle = -0.4; // Visual Setir Kanan
-        carModel.rotation.y -= 0.038; // Body Mobil Putar Kanan
-      }
-      // === FASE 4: KEMBALI LURUS
-      else if (t >= 5.5 && t < 9.5) {
-        steeringAngle = 0;
-      }
-
-      // === FASE 5: Belok kanan
-      else if (t >= 9.5 && t < 10.0) {
-        steeringAngle = -0.4; // Visual Setir Kanan
-        carModel.rotation.y -= 0.025; // Body Mobil Putar Kanan
-      }
-
-      // === FASE 6: KEMBALI LURUS
-      else if (t >= 10.0 && t < 14.0) {
-        steeringAngle = 0;
-      }
-
-      // === FASE 7: Belok Kiri
-      else if (t >= 14.0 && t < 14.5) {
-        steeringAngle = -0.4; // Visual Setir Kanan
-        carModel.rotation.y -= -0.015; // Body Mobil Putar Kanan
-      }
-
-      // === FASE 8: KEMBALI LURUS
-      else if (t >= 14.5 && t < 20.0) {
-        steeringAngle = 0;
-      }
-
-      // === FASE 9: Belok Kiri
-      else if (t >= 20.0 && t < 20.5) {
-        steeringAngle = -0.4; // Visual Setir Kanan
-        carModel.rotation.y -= -0.078; // Body Mobil Putar Kanan
-      }
-
-      // === FASE 4: KEMBALI LURUS (5.5s ke atas) ===
-      else {
-        steeringAngle = 0; // Visual Setir Lurus Kembali
-        // Kita tidak mereset rotasi body (biar tetap menghadap arah baru)
-        // Tapi kita stop perintah 'rotation.y -= ...' agar tidak muter terus.
-      }
-
-      // === LOGIKA KAMERA (TETAP) ===
+      // === KAMERA ===
       const distOffset = new THREE.Vector3(0.0, 0.04, -0.08);
       distOffset.applyQuaternion(carModel.quaternion);
 
