@@ -684,50 +684,6 @@ function setSpawn(x, y, z, rotationY = 0) {
 
 // --- SCENE SCENARIOS Belum di Pakai
 
-function scene_AmericanUnderpass() {
-  console.log("🎬 Map: American Underpass");
-  coreLoadMap("american_road_underpass_bridge.glb", () => {
-    setSpawn(-1124, -15, -94, Math.PI / 2);
-    lightingThemes.daylight();
-
-    scaleParams.autoScale = false;
-
-    // Update slider GUI agar sinkron
-    if (scaleParams) scaleParams.size = 1.5;
-
-    // LOGIKA CINEMATIC MAP INI
-    Director.loadScenario((delta, timeInShot) => {
-      // 1. START: Shot Belakang
-      if (Director.currentCut === null) {
-        Director.cutTo("AU_Start");
-        carSettings.autoDrive = true;
-        carSettings.maxSpeed = 0.5;
-      }
-
-      if (Director.currentCut === "AU_Start") {
-        camera.position.z += 1.5 * delta; // Efek dolly out
-        if (timeInShot > 4.0) Director.cutTo("AU_Side");
-      }
-
-      // 2. Shot Samping
-      else if (Director.currentCut === "AU_Side") {
-        if (carModel) {
-          // Kamera tracking samping
-          camera.position.x = carModel.position.x + 5;
-          camera.position.z = carModel.position.z;
-          controls.target.copy(carModel.position);
-        }
-        if (timeInShot > 4.0) Director.cutTo("AU_Top");
-      }
-
-      // 3. Shot Atas (Ending)
-      else if (Director.currentCut === "AU_Top") {
-        carSettings.maxSpeed = 2.0; // Ngebut
-        if (timeInShot > 4.0) Director.stop(); // Selesai
-      }
-    });
-  });
-}
 function scene_AmericanCurve() {
   console.log("🎬 Map: American Curve");
   coreLoadMap("american_road_curve_ahead.glb", () => {
@@ -1618,6 +1574,81 @@ function scene_MountainRoad() {
     });
 
     Director.play();
+  });
+}
+// =========================================
+// Map 5
+// =========================================
+function scene_AmericanUnderpass() {
+  console.log("🎬 Map 5: American Underpass");
+
+  coreLoadMap("american_road_underpass_bridge.glb", () => {
+    setSpawn(-1124, -15, -94, Math.PI / 2);
+    lightingThemes.daylight();
+
+    // ============================================
+    // 1. SETTING SKALA (30)
+    // ============================================
+    scaleParams.autoScale = false;
+    const BIG_SCALE = 30;
+
+    if (carModel) carModel.scale.set(BIG_SCALE, BIG_SCALE, BIG_SCALE);
+    if (scaleParams) scaleParams.size = BIG_SCALE;
+
+    // ============================================
+    // 2. RENDER SETTINGS
+    // ============================================
+    camera.near = 2.0;
+    camera.far = 100000;
+    camera.updateProjectionMatrix();
+
+    if (scene.fog) {
+      scene.fog.near = 5000;
+      scene.fog.far = 150000;
+    }
+
+    // ============================================
+    // 3. LOGIKA CINEMATIC
+    // ============================================
+    Director.loadScenario((delta, timeInShot) => {
+      // --- SETUP AWAL ---
+      if (Director.currentCut === null) {
+        Director.cutTo("AU_Start");
+        carSettings.autoDrive = true;
+
+        // ⚡ 1. DISINI UNTUK MENGATUR KECEPATAN MOBIL ⚡
+        // 15.0 = Pelan
+        // 60.0 = Ngebut (Cocok untuk Scale 30)
+        carSettings.maxSpeed = 60.0;
+      }
+
+      // --- LOOP ANIMASI ---
+      if (Director.currentCut === "AU_Start") {
+        // A. KAMERA MUNDUR
+        // Saya naikkan sedikit jadi 40 biar seimbang sama mobil yang makin ngebut
+        camera.position.z += 40.0 * delta;
+
+        // B. ROTASI HALUS (NARROW PAN)
+        if (carModel) {
+          controls.target.copy(carModel.position);
+
+          // ⚡ 2. DISINI PENGATURAN ROTASINYA ⚡
+
+          // RUMUS: Awal + (Waktu * KecepatanGeser)
+
+          // Awal: -40 (Melirik sedikit ke Kiri) -> Dulu -150 (Terlalu lebar)
+          // Speed: 10 (Geser pelan-pelan) -> Dulu 60 (Terlalu cepat)
+
+          const panOffset = -10 + timeInShot * 10.0;
+
+          // Terapkan (Sumbu Z adalah Kiri/Kanan mobil di map ini)
+          controls.target.z += panOffset;
+
+          // Offset X sedikit biar fokus ke bagian depan mobil
+          controls.target.x -= 30;
+        }
+      }
+    });
   });
 }
 // --- REGISTRY  MAP---
