@@ -1059,7 +1059,7 @@ fadeOut(() => {
 // Map 3
 // =========================================
 function scene_Highway() {
-  console.log("🎬 Map 3: Highway (External Stop)");
+  console.log("🎬 Map 3: Highway (Night Mode + Fixed Shadow)");
 
   if (typeof AutoShowcase !== "undefined") AutoShowcase.active = false;
 
@@ -1077,7 +1077,7 @@ function scene_Highway() {
       ];
 
       // =========================================
-      // 2. SETUP & LIGHTING
+      // 2. SETUP & LIGHTING (NIGHT MODE)
       // =========================================
       const INITIAL_ROT = 5.4;
       setSpawn(20.39, 0.2, -60.41, INITIAL_ROT);
@@ -1086,19 +1086,33 @@ function scene_Highway() {
       if (carModel) carModel.scale.set(1, 1, 1);
       if (scaleParams) scaleParams.size = 1;
 
-      lightingThemes.night();
+      // Gunakan tema malam sebagai dasar
+      lightingThemes.night(); 
       
-      // Hardcode Shadow
+      // --- HARDCODE SHADOW MALAM ---
+      // Target cahaya pas di mobil
       lightingConfig.targetX = 20;
       lightingConfig.targetZ = -60;
-      lightingConfig.shadowRange = 300;
-      lightingConfig.dirPositionY = 120;
-      lightingConfig.dirPositionX = 50;
-      lightingConfig.dirPositionZ = 50;
-      lightingConfig.ambientIntensity = 0.7;
       
-      updateLighting(); 
-      toggleCarLights(true);
+      // Bulan (Directional Light)
+      lightingConfig.dirPositionX = -50; // Bulan dari kiri
+      lightingConfig.dirPositionY = 100; // Tinggi
+      lightingConfig.dirPositionZ = 50;
+      lightingConfig.dirColor = "#aaccff"; // Cahaya bulan kebiruan
+      lightingConfig.dirIntensity = 0.8;   // Cukup terang untuk bikin bayangan
+      
+      // Shadow (Area kecil agar tajam di aspal gelap)
+      lightingConfig.shadowRange = 150; 
+      lightingConfig.shadowBias = -0.0001;
+      
+      // Ambient (Biar mobil ga hitam legam)
+      lightingConfig.ambientIntensity = 0.3; 
+      lightingConfig.ambientColor = "#111122"; // Biru malam
+      
+      updateLighting(); // Apply
+      
+      // Wajib nyalakan lampu mobil
+      toggleCarLights(true); 
 
       camera.near = 0.05;
       camera.updateProjectionMatrix();
@@ -1131,7 +1145,7 @@ function scene_Highway() {
           // 🔥 Fase STOP (Detik 8) 🔥
           else if (t >= 8.0) {
              carSettings.autoDrive = false;
-             carSpeed = 0; // Hard Stop
+             carSpeed = 0; 
              currentRotSpeed = 0;
              steeringAngle = 0;
           }
@@ -1179,22 +1193,18 @@ function scene_Highway() {
           camOffset = new THREE.Vector3(12.0, 12.0, -2.0);
           lookTargetOffset = new THREE.Vector3(0, 0.0, 4.0);
         } 
-        // Shot 3: Drone to EXTERIOR Side (6s++) - 🔥 DIGANTI DISINI 🔥
+        // Shot 3: Drone to EXTERIOR Side (6s++)
         else {
           const zoomStartTime = 6.0;
           const zoomDuration = 4.0;
           const progress = Math.min(Math.max((t - zoomStartTime) / zoomDuration, 0), 1);
           const smoothP = THREE.MathUtils.smoothstep(progress, 0, 1);
 
-          // Awal: Drone Tinggi
           const startPos = new THREE.Vector3(0.0, 15.0, -10.0);
-          
-          // Akhir: Samping Kanan Belakang (TETAP DI LUAR)
-          // X=5 (Kanan), Y=2 (Agak Rendah), Z=-5 (Belakang)
-          const endPos = new THREE.Vector3(5.0, 2.0, -5.0); 
+          const endPos = new THREE.Vector3(5.0, 2.0, -5.0); // Tetap di luar
 
           const startLook = new THREE.Vector3(0, 0.0, 10.0);
-          const endLook = new THREE.Vector3(0, 0.5, 0.0); // Lihat tengah mobil
+          const endLook = new THREE.Vector3(0, 0.5, 0.0); 
 
           camOffset = new THREE.Vector3().lerpVectors(startPos, endPos, smoothP);
           lookTargetOffset = new THREE.Vector3().lerpVectors(startLook, endLook, smoothP);
