@@ -372,22 +372,18 @@ function updateCar() {
   steeringAngle += (targetSteering - steeringAngle) * 0.1;
 
   if (carModel && dirLight && lightingConfig.shadowAutoUpdate) {
-      const carPos = carModel.position;
-      
-      // Update posisi lampu mengikuti mobil
-      dirLight.position.set(
-          carPos.x + lightingConfig.dirPositionX,
-          carPos.y + lightingConfig.dirPositionY,
-          carPos.z + lightingConfig.dirPositionZ
-      );
-      
-      // Update target lampu ke mobil
-      dirLight.target.position.copy(carPos);
-      dirLight.target.updateMatrixWorld();
-      
-      // (Opsional) Update nilai GUI Target X/Z biar angkanya ikut berubah real-time
-      // lightingConfig.targetX = carPos.x;
-      // lightingConfig.targetZ = carPos.z;
+    const carPos = carModel.position;
+
+    // Update posisi lampu mengikuti mobil
+    dirLight.position.set(carPos.x + lightingConfig.dirPositionX, carPos.y + lightingConfig.dirPositionY, carPos.z + lightingConfig.dirPositionZ);
+
+    // Update target lampu ke mobil
+    dirLight.target.position.copy(carPos);
+    dirLight.target.updateMatrixWorld();
+
+    // (Opsional) Update nilai GUI Target X/Z biar angkanya ikut berubah real-time
+    // lightingConfig.targetX = carPos.x;
+    // lightingConfig.targetZ = carPos.z;
   }
 
   // --- 3. COLLISION SYSTEM (BARU) ---
@@ -707,7 +703,6 @@ function setSpawn(x, y, z, rotationY = 0) {
 // Map yang di pakai
 // =========================================
 
-<<<<<<< HEAD
 function scene_AmericanCurve() {
   console.log("🎬 Map: American Curve");
   coreLoadMap("american_road_curve_ahead.glb", () => {
@@ -814,29 +809,6 @@ function scene_DesertRoad() {
     // Tidak ada cinematic, langsung main
   });
 }
-=======
-// =========================================
-// Map 1
-// =========================================
-
-// function setupFadeOverlay() {
-//   let fadeOverlay = document.getElementById("cinematic-fade-overlay");
-//   if (!fadeOverlay) {
-//     fadeOverlay = document.createElement("div");
-//     fadeOverlay.id = "cinematic-fade-overlay";
-//     fadeOverlay.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;background:black;opacity:1;pointer-events:none;z-index:9999;transition:opacity 1.5s ease-out;";
-//     document.body.appendChild(fadeOverlay);
-//   }
-//   // Reset opacity jadi hitam dulu, nanti di-fade out via setTimeout
-//   fadeOverlay.style.opacity = "1";
-  
-//   setTimeout(() => {
-//       fadeOverlay.style.opacity = "0";
-//   }, 100); // Trigger fade in setelah load
-//   return fadeOverlay;
-// }
-
->>>>>>> 6aaf189817069a3510130bfab05a8646397760ab
 function scene_TestMode() {
   coreLoadMap("test", () => {
     setSpawn(0, 0, 0, 0);
@@ -852,111 +824,114 @@ function scene_City() {
 
   // 1. Panggil Fade Out
   fadeOut(() => {
-    
     // 2. Load Map
     coreLoadMap("city_for_my_game.glb", () => {
-        // --- CALLBACK INI JALAN SAAT MAP SUDAH SIAP ---
-        
-        // A. Reset & Spawn
-        scaleParams.autoScale = true;
-        if (carModel) carModel.scale.set(1, 1, 1);
-        if (scaleParams) scaleParams.size = 1;
-        setSpawn(119.1, -9.35, -197.2, Math.PI / 10);
+      // --- CALLBACK INI JALAN SAAT MAP SUDAH SIAP ---
 
-        // B. Setup Lighting Tema
-        lightingThemes.sunset();
-        toggleCarLights(false); 
+      // A. Reset & Spawn
+      scaleParams.autoScale = true;
+      if (carModel) carModel.scale.set(1, 1, 1);
+      if (scaleParams) scaleParams.size = 1;
+      setSpawn(119.1, -9.35, -197.2, Math.PI / 10);
 
-        // C. 🔥 HARDCODE SHADOW (DIJAMIN PRESISI) 🔥
-        // Paksa nilai langsung ke variabel config
-        lightingConfig.shadowEnabled = true;
-        lightingConfig.shadowRange = 300; 
-        lightingConfig.targetX = 119;   // Koordinat X Kota
-        lightingConfig.targetZ = -197;  // Koordinat Z Kota
-        lightingConfig.dirPositionY = 50; 
-        lightingConfig.dirPositionX = 100;
-        
-        // Panggil updateLighting() agar efeknya langsung muncul
-        updateLighting();
+      // B. Setup Lighting Tema
+      lightingThemes.sunset();
+      toggleCarLights(false);
 
-        // D. Setup Director & Mobil
-        carSettings.autoDrive = false;
-        carSettings.maxSpeed = 1.0;
-        carSettings.acceleration = 0.015;
-        carSettings.turnSpeed = 0.03;
-        carSpeed = 0;
-        let safeSpot = null;
+      // C. 🔥 HARDCODE SHADOW (DIJAMIN PRESISI) 🔥
+      // Paksa nilai langsung ke variabel config
+      lightingConfig.shadowEnabled = true;
+      lightingConfig.shadowRange = 300;
+      lightingConfig.targetX = 119; // Koordinat X Kota
+      lightingConfig.targetZ = -197; // Koordinat Z Kota
+      lightingConfig.dirPositionY = 50;
+      lightingConfig.dirPositionX = 100;
 
-        // E. Jalankan Director
-        Director.loadScenario((delta, t) => {
-            const SCENE_DURATION = 22.0;
+      // Panggil updateLighting() agar efeknya langsung muncul
+      updateLighting();
 
-            // Loop Logic
-            if (t > SCENE_DURATION) {
-                Director.startTime = clock.getElapsedTime();
-                setSpawn(119.1, -9.35, -197.2, Math.PI / 10);
-                carSpeed = 0;
-                safeSpot = null;
-                fadeCurtain.style.opacity = "0"; 
-                return;
-            }
+      // D. Setup Director & Mobil
+      carSettings.autoDrive = false;
+      carSettings.maxSpeed = 1.0;
+      carSettings.acceleration = 0.015;
+      carSettings.turnSpeed = 0.03;
+      carSpeed = 0;
+      let safeSpot = null;
 
-            // Mobil Logic
-            if (t > 3.0 && t < 16.0) {
-                if (!carSettings.autoDrive) { carSettings.autoDrive = true; toggleCarLights(true); }
-            } else if (t >= 16.0) {
-                carSettings.autoDrive = false; carSpeed *= 0.9;
-            }
+      // E. Jalankan Director
+      Director.loadScenario((delta, t) => {
+        const SCENE_DURATION = 22.0;
 
-            // Steering Logic
-            if (t > 3.5 && t < 4.0) {
-                const p = THREE.MathUtils.smoothstep(t, 3.5, 4.0);
-               // Ganti 0.025 jadi 0.045 biar beloknya nendang
-                carModel.rotation.y -= 0.028 * p; 
-                
-                
-                steeringAngle = -0.5 * p;
-            } else if (t >= 4.0) {
-                steeringAngle += (0 - steeringAngle) * 0.1;
-            }
+        // Loop Logic
+        if (t > SCENE_DURATION) {
+          Director.startTime = clock.getElapsedTime();
+          setSpawn(119.1, -9.35, -197.2, Math.PI / 10);
+          carSpeed = 0;
+          safeSpot = null;
+          fadeCurtain.style.opacity = "0";
+          return;
+        }
 
-            // Fade Logic (Out)
-            if (t > 19.0) fadeCurtain.style.opacity = (t - 19.0) / 2.0; 
-            else fadeCurtain.style.opacity = 0;
+        // Mobil Logic
+        if (t > 3.0 && t < 16.0) {
+          if (!carSettings.autoDrive) {
+            carSettings.autoDrive = true;
+            toggleCarLights(true);
+          }
+        } else if (t >= 16.0) {
+          carSettings.autoDrive = false;
+          carSpeed *= 0.9;
+        }
 
-            // Camera Logic
-            if (t < 3.0) {
-                const a = t * 0.2;
-                camera.position.set(carModel.position.x + Math.sin(a)*5.5, carModel.position.y+1.5, carModel.position.z+Math.cos(a)*5.5);
-                controls.target.copy(carModel.position);
-            } else if (t >= 3.0 && t < 8.0) {
-                const rel = new THREE.Vector3(2.5, 0.5, 1.5).applyMatrix4(carModel.matrixWorld);
-                rel.y += Math.random() * 0.01;
-                camera.position.lerp(rel, 0.1);
-                const la = carModel.position.clone().add(new THREE.Vector3(0,0,5).applyQuaternion(carModel.quaternion));
-                controls.target.lerp(la, 0.1);
-            } else if (t >= 8.0 && t < 12.0) {
-                const p = THREE.MathUtils.smoothstep((t-8.0)/4.0, 0, 1);
-                const r = THREE.MathUtils.lerp(3.0, 8.5, p);
-                const a = THREE.MathUtils.lerp(Math.PI/2, 0.05, p);
-                const rel = new THREE.Vector3(Math.sin(a)*r, THREE.MathUtils.lerp(0.5, 0.6, p), Math.cos(a)*r).applyMatrix4(carModel.matrixWorld);
-                camera.position.lerp(rel, 0.1);
-                controls.target.lerp(carModel.position, 0.3);
-            } else {
-                if (!safeSpot) {
-                    safeSpot = camera.position.clone();
-                    const rv = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion).normalize().multiplyScalar(7);
-                    safeSpot.add(rv); safeSpot.y = 2.0;
-                }
-                camera.position.lerp(safeSpot, 0.08);
-                if(carModel) controls.target.lerp(carModel.position, 0.1);
-            }
-        });
+        // Steering Logic
+        if (t > 3.5 && t < 4.0) {
+          const p = THREE.MathUtils.smoothstep(t, 3.5, 4.0);
+          // Ganti 0.025 jadi 0.045 biar beloknya nendang
+          carModel.rotation.y -= 0.028 * p;
 
-        Director.play();
-        
-        // F. Terakhir: Munculkan Layar (Fade In)
-        fadeIn(); 
+          steeringAngle = -0.5 * p;
+        } else if (t >= 4.0) {
+          steeringAngle += (0 - steeringAngle) * 0.1;
+        }
+
+        // Fade Logic (Out)
+        if (t > 19.0) fadeCurtain.style.opacity = (t - 19.0) / 2.0;
+        else fadeCurtain.style.opacity = 0;
+
+        // Camera Logic
+        if (t < 3.0) {
+          const a = t * 0.2;
+          camera.position.set(carModel.position.x + Math.sin(a) * 5.5, carModel.position.y + 1.5, carModel.position.z + Math.cos(a) * 5.5);
+          controls.target.copy(carModel.position);
+        } else if (t >= 3.0 && t < 8.0) {
+          const rel = new THREE.Vector3(2.5, 0.5, 1.5).applyMatrix4(carModel.matrixWorld);
+          rel.y += Math.random() * 0.01;
+          camera.position.lerp(rel, 0.1);
+          const la = carModel.position.clone().add(new THREE.Vector3(0, 0, 5).applyQuaternion(carModel.quaternion));
+          controls.target.lerp(la, 0.1);
+        } else if (t >= 8.0 && t < 12.0) {
+          const p = THREE.MathUtils.smoothstep((t - 8.0) / 4.0, 0, 1);
+          const r = THREE.MathUtils.lerp(3.0, 8.5, p);
+          const a = THREE.MathUtils.lerp(Math.PI / 2, 0.05, p);
+          const rel = new THREE.Vector3(Math.sin(a) * r, THREE.MathUtils.lerp(0.5, 0.6, p), Math.cos(a) * r).applyMatrix4(carModel.matrixWorld);
+          camera.position.lerp(rel, 0.1);
+          controls.target.lerp(carModel.position, 0.3);
+        } else {
+          if (!safeSpot) {
+            safeSpot = camera.position.clone();
+            const rv = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion).normalize().multiplyScalar(7);
+            safeSpot.add(rv);
+            safeSpot.y = 2.0;
+          }
+          camera.position.lerp(safeSpot, 0.08);
+          if (carModel) controls.target.lerp(carModel.position, 0.1);
+        }
+      });
+
+      Director.play();
+
+      // F. Terakhir: Munculkan Layar (Fade In)
+      fadeIn();
     });
   });
 }
@@ -967,202 +942,200 @@ function scene_BridgeDesign() {
   console.log("🎬 Map 2: Bridge ");
 
   if (typeof AutoShowcase !== "undefined") AutoShowcase.active = false;
-fadeOut(() => {
-  coreLoadMap("bridge_design.glb", () => {
-    // 1. SPAWN POINT (TETAP)
-    setSpawn(-190.02, 6.0, 6.39, 2.02);
+  fadeOut(() => {
+    coreLoadMap("bridge_design.glb", () => {
+      // 1. SPAWN POINT (TETAP)
+      setSpawn(-190.02, 6.0, 6.39, 2.02);
 
-    // === TAMBAHAN PENTING (RESET UKURAN) ===
-    // Kembalikan mobil ke ukuran asli
-    scaleParams.autoScale = true;
-    if (carModel) carModel.scale.set(1, 1, 1);
-    if (scaleParams) scaleParams.size = 1;
-    lightingThemes.daylight();
+      // === TAMBAHAN PENTING (RESET UKURAN) ===
+      // Kembalikan mobil ke ukuran asli
+      scaleParams.autoScale = true;
+      if (carModel) carModel.scale.set(1, 1, 1);
+      if (scaleParams) scaleParams.size = 1;
+      lightingThemes.daylight();
 
-    lightingConfig.shadowRange = 50; 
-    lightingConfig.targetX = -190;
-    lightingConfig.targetZ = 0;
-    lightingConfig.shadowBias =  0;
-    lightingConfig.dirPositionX = 50;
-    lightingConfig.dirPositionY = 150; // Tinggi biar bayangan tajam ke bawah
-    lightingConfig.dirPositionZ = 50;
+      lightingConfig.shadowRange = 50;
+      lightingConfig.targetX = -190;
+      lightingConfig.targetZ = 0;
+      lightingConfig.shadowBias = 0;
+      lightingConfig.dirPositionX = 50;
+      lightingConfig.dirPositionY = 150; // Tinggi biar bayangan tajam ke bawah
+      lightingConfig.dirPositionZ = 50;
 
-    lightingConfig.ambientIntensity = 0.4;
-    lightingConfig.dirIntensity = 2.5; // Naikkan biar "nendang"
-    updateLighting();
+      lightingConfig.ambientIntensity = 0.4;
+      lightingConfig.dirIntensity = 2.5; // Naikkan biar "nendang"
+      updateLighting();
 
-    
+      // ====================================================
+      // 📍 SISTEM NAVIGASI (3 WAYPOINTS)
+      // ====================================================
 
-    // ====================================================
-    // 📍 SISTEM NAVIGASI (3 WAYPOINTS)
-    // ====================================================
+      // Trigger 1: MULAI BELOK
+      const POINT_START_TURN = new THREE.Vector3(-25.26, 10.85, -73.21);
 
-    // Trigger 1: MULAI BELOK
-    const POINT_START_TURN = new THREE.Vector3(-25.26, 10.85, -73.21);
+      // Trigger 2: KEMBALI LURUS
+      const POINT_END_TURN = new THREE.Vector3(185.24, 13.55, -90.06);
 
-    // Trigger 2: KEMBALI LURUS
-    const POINT_END_TURN = new THREE.Vector3(185.24, 13.55, -90.06);
+      // Trigger 3: STOP (FINISH)
+      // 📍 X: 526.59, Y: 5.90, Z: -6.97
+      const POINT_STOP = new THREE.Vector3(526.59, 5.9, -6.97);
 
-    // Trigger 3: STOP (FINISH)
-    // 📍 X: 526.59, Y: 5.90, Z: -6.97
-    const POINT_STOP = new THREE.Vector3(526.59, 5.9, -6.97);
+      // ====================================================
 
-    // ====================================================
+      // SETTING MOBIL
+      carSettings.autoDrive = false;
+      carSettings.maxSpeed = 1.4;
+      carSettings.acceleration = 0.02;
+      carSettings.turnSpeed = 0.05;
+      carSpeed = 0;
+      toggleCarLights(true);
 
-    // SETTING MOBIL
-    carSettings.autoDrive = false;
-    carSettings.maxSpeed = 1.4;
-    carSettings.acceleration = 0.02;
-    carSettings.turnSpeed = 0.05;
-    carSpeed = 0;
-    toggleCarLights(true);
+      // ANCHOR LANGIT (Untuk Kamera Ending)
+      const SKY_LINK_POS = new THREE.Vector3(0, 40, -10);
 
-    // ANCHOR LANGIT (Untuk Kamera Ending)
-    const SKY_LINK_POS = new THREE.Vector3(0, 40, -10);
-
-    // Setup Awal Kamera
-    if (carModel) {
-      const startPos = new THREE.Vector3(2.0, 1.2, -4.5).applyMatrix4(carModel.matrixWorld);
-      camera.position.copy(startPos);
-      camera.lookAt(carModel.position);
-    }
-
-    // STATUS LOGIKA
-    let isTurning = false;
-    let hasFinishedTurn = false;
-    let hasReachedFinish = false;
-
-    Director.loadScenario((delta, t) => {
-      // Durasi diperpanjang agar mobil sampai ke titik 526
-      const DURATION = 35.0;
-
-      if (t > DURATION) {
-        carSpeed = 0;
-        return;
+      // Setup Awal Kamera
+      if (carModel) {
+        const startPos = new THREE.Vector3(2.0, 1.2, -4.5).applyMatrix4(carModel.matrixWorld);
+        camera.position.copy(startPos);
+        camera.lookAt(carModel.position);
       }
 
-      // === A. LOGIKA MOBIL (NAVIGASI PRESISI) ===
+      // STATUS LOGIKA
+      let isTurning = false;
+      let hasFinishedTurn = false;
+      let hasReachedFinish = false;
 
-      // Hitung Jarak Real-time
-      const distStart = carModel.position.distanceTo(POINT_START_TURN);
-      const distEnd = carModel.position.distanceTo(POINT_END_TURN);
-      const distStop = carModel.position.distanceTo(POINT_STOP);
+      Director.loadScenario((delta, t) => {
+        // Durasi diperpanjang agar mobil sampai ke titik 526
+        const DURATION = 35.0;
 
-      // --- CEK TRIGGER ---
-
-      // 1. Trigger Belok
-      if (!isTurning && !hasFinishedTurn && distStart < 15.0) {
-        isTurning = true;
-      }
-
-      // 2. Trigger Lurus Kembali
-      if (isTurning && distEnd < 15.0) {
-        isTurning = false;
-        hasFinishedTurn = true;
-      }
-
-      // 3. Trigger Stop (Baru)
-      // Jika jarak ke titik stop kurang dari 10 meter, rem total.
-      if (!hasReachedFinish && distStop < 10.0) {
-        hasReachedFinish = true;
-      }
-
-      // --- EKSEKUSI GERAKAN ---
-
-      if (t < 1.5) {
-        carSpeed = 0; // Pemanasan
-      } else {
-        // Jika sudah sampai finish, stop mobil
-        if (hasReachedFinish) {
-          carSettings.autoDrive = false;
-          carSpeed *= 0.8; // Pengereman cepat
-          if (carSpeed < 0.01) carSpeed = 0;
+        if (t > DURATION) {
+          carSpeed = 0;
+          return;
         }
-        // Jika belum finish, jalan terus
-        else {
-          if (!carSettings.autoDrive) carSettings.autoDrive = true;
 
-          if (isTurning) {
-            // BELOK
-            carModel.rotation.y -= 0.0022;
-            steeringAngle = 0.12;
-          } else {
-            // LURUS (Awal & Akhir)
-            steeringAngle = 0;
+        // === A. LOGIKA MOBIL (NAVIGASI PRESISI) ===
+
+        // Hitung Jarak Real-time
+        const distStart = carModel.position.distanceTo(POINT_START_TURN);
+        const distEnd = carModel.position.distanceTo(POINT_END_TURN);
+        const distStop = carModel.position.distanceTo(POINT_STOP);
+
+        // --- CEK TRIGGER ---
+
+        // 1. Trigger Belok
+        if (!isTurning && !hasFinishedTurn && distStart < 15.0) {
+          isTurning = true;
+        }
+
+        // 2. Trigger Lurus Kembali
+        if (isTurning && distEnd < 15.0) {
+          isTurning = false;
+          hasFinishedTurn = true;
+        }
+
+        // 3. Trigger Stop (Baru)
+        // Jika jarak ke titik stop kurang dari 10 meter, rem total.
+        if (!hasReachedFinish && distStop < 10.0) {
+          hasReachedFinish = true;
+        }
+
+        // --- EKSEKUSI GERAKAN ---
+
+        if (t < 1.5) {
+          carSpeed = 0; // Pemanasan
+        } else {
+          // Jika sudah sampai finish, stop mobil
+          if (hasReachedFinish) {
+            carSettings.autoDrive = false;
+            carSpeed *= 0.8; // Pengereman cepat
+            if (carSpeed < 0.01) carSpeed = 0;
+          }
+          // Jika belum finish, jalan terus
+          else {
+            if (!carSettings.autoDrive) carSettings.autoDrive = true;
+
+            if (isTurning) {
+              // BELOK
+              carModel.rotation.y -= 0.0022;
+              steeringAngle = 0.12;
+            } else {
+              // LURUS (Awal & Akhir)
+              steeringAngle = 0;
+            }
           }
         }
-      }
 
-      // === B. KAMERA (REVISI DRASTIS) ===
+        // === B. KAMERA (REVISI DRASTIS) ===
 
-      let relOffset, lookTarget;
+        let relOffset, lookTarget;
 
-      // SHOT 1: LOW ANGLE (0s - 4s)
-      if (t < 4.0) {
-        relOffset = new THREE.Vector3(2.0, 1.2, -4.5);
-        relOffset.y += Math.sin(t * 2) * 0.02;
-        lookTarget = carModel.position.clone();
-        lookTarget.y += 0.5;
-      }
+        // SHOT 1: LOW ANGLE (0s - 4s)
+        if (t < 4.0) {
+          relOffset = new THREE.Vector3(2.0, 1.2, -4.5);
+          relOffset.y += Math.sin(t * 2) * 0.02;
+          lookTarget = carModel.position.clone();
+          lookTarget.y += 0.5;
+        }
 
-      // SHOT 2: SWING TO DRONE SIDE (4s - 10s)
-      // Durasi: 6 Detik
-      else if (t >= 4.0 && t < 10.0) {
-        // FIX DURASI: (10 - 4 = 6.0)
-        const progress = (t - 4.0) / 6.0;
+        // SHOT 2: SWING TO DRONE SIDE (4s - 10s)
+        // Durasi: 6 Detik
+        else if (t >= 4.0 && t < 10.0) {
+          // FIX DURASI: (10 - 4 = 6.0)
+          const progress = (t - 4.0) / 6.0;
 
-        // Gunakan smoothstep agar gerakan awal dan akhir pelan (tidak kaget)
-        const smoothP = THREE.MathUtils.smoothstep(progress, 0, 1);
+          // Gunakan smoothstep agar gerakan awal dan akhir pelan (tidak kaget)
+          const smoothP = THREE.MathUtils.smoothstep(progress, 0, 1);
 
-        // --- PERBAIKAN TRANSISI (SWING LOGIC) ---
+          // --- PERBAIKAN TRANSISI (SWING LOGIC) ---
 
-        // START (Diambil dari posisi terakhir Shot 1): X=2.0 (Kanan), Y=1.2 (Rendah), Z=-4.5 (Belakang)
-        // TARGET (Posisi Drone yang Anda mau):        X=-4.5 (Kiri),  Y=3.0 (Tinggi), Z=-1.0 (Samping)
+          // START (Diambil dari posisi terakhir Shot 1): X=2.0 (Kanan), Y=1.2 (Rendah), Z=-4.5 (Belakang)
+          // TARGET (Posisi Drone yang Anda mau):        X=-4.5 (Kiri),  Y=3.0 (Tinggi), Z=-1.0 (Samping)
 
-        // X: Gerak dari Kanan (2.0) memutar ke Kiri (-4.5)
-        const x = THREE.MathUtils.lerp(2.0, -11.5, smoothP);
+          // X: Gerak dari Kanan (2.0) memutar ke Kiri (-4.5)
+          const x = THREE.MathUtils.lerp(2.0, -11.5, smoothP);
 
-        // Y: Naik perlahan dari 1.2 ke 3.0
-        const y = THREE.MathUtils.lerp(1.2, 3.0, smoothP);
+          // Y: Naik perlahan dari 1.2 ke 3.0
+          const y = THREE.MathUtils.lerp(1.2, 3.0, smoothP);
 
-        // Z: Maju perlahan dari Belakang (-4.5) ke Samping (-1.0)
-        const z = THREE.MathUtils.lerp(-4.5, -1.0, smoothP);
+          // Z: Maju perlahan dari Belakang (-4.5) ke Samping (-1.0)
+          const z = THREE.MathUtils.lerp(-4.5, -1.0, smoothP);
 
-        relOffset = new THREE.Vector3(x, y, z);
-        lookTarget = carModel.position.clone();
+          relOffset = new THREE.Vector3(x, y, z);
+          lookTarget = carModel.position.clone();
 
-        // Target fokus juga transisi halus dari 0.5 ke 0.8
-        lookTarget.y += THREE.MathUtils.lerp(0.5, 0.8, smoothP);
-        // Z Target tetap 0 agar di tengah
-      }
+          // Target fokus juga transisi halus dari 0.5 ke 0.8
+          lookTarget.y += THREE.MathUtils.lerp(0.5, 0.8, smoothP);
+          // Z Target tetap 0 agar di tengah
+        }
 
-      // SHOT 3: SKY LIFT (10s+)
-      // Update start position agar nyambung dengan akhir Shot 2
-      else {
-        const progress = (t - 10.0) / 10.0; // Asumsi sisa waktu 10 detik
-        const smoothP = THREE.MathUtils.smoothstep(progress, 0, 1);
+        // SHOT 3: SKY LIFT (10s+)
+        // Update start position agar nyambung dengan akhir Shot 2
+        else {
+          const progress = (t - 10.0) / 10.0; // Asumsi sisa waktu 10 detik
+          const smoothP = THREE.MathUtils.smoothstep(progress, 0, 1);
 
-        // Start X harus sama dengan akhir Shot 2 (-4.5)
-        const x = THREE.MathUtils.lerp(-11.5, SKY_LINK_POS.x, smoothP);
-        // Start Y harus sama dengan akhir Shot 2 (3.0)
-        const y = THREE.MathUtils.lerp(3.0, SKY_LINK_POS.y, smoothP);
-        // Start Z harus sama dengan akhir Shot 2 (-1.0)
-        const z = THREE.MathUtils.lerp(-1.0, SKY_LINK_POS.z, smoothP);
+          // Start X harus sama dengan akhir Shot 2 (-4.5)
+          const x = THREE.MathUtils.lerp(-11.5, SKY_LINK_POS.x, smoothP);
+          // Start Y harus sama dengan akhir Shot 2 (3.0)
+          const y = THREE.MathUtils.lerp(3.0, SKY_LINK_POS.y, smoothP);
+          // Start Z harus sama dengan akhir Shot 2 (-1.0)
+          const z = THREE.MathUtils.lerp(-1.0, SKY_LINK_POS.z, smoothP);
 
-        relOffset = new THREE.Vector3(x, y, z);
-        lookTarget = carModel.position.clone();
-      }
+          relOffset = new THREE.Vector3(x, y, z);
+          lookTarget = carModel.position.clone();
+        }
 
-      const worldCam = relOffset.applyMatrix4(carModel.matrixWorld);
+        const worldCam = relOffset.applyMatrix4(carModel.matrixWorld);
 
-      // PERCEPAT RESPON KAMERA (0.08 -> 0.2)
-      // Agar kamera langsung nempel, tidak 'tertinggal'
-      camera.position.lerp(worldCam, 0.2);
-      controls.target.lerp(lookTarget, 0.2);
+        // PERCEPAT RESPON KAMERA (0.08 -> 0.2)
+        // Agar kamera langsung nempel, tidak 'tertinggal'
+        camera.position.lerp(worldCam, 0.2);
+        controls.target.lerp(lookTarget, 0.2);
+      });
+      Director.play();
     });
-    Director.play();
   });
-});
 }
 // =========================================
 // Map 3
@@ -1196,32 +1169,32 @@ function scene_Highway() {
       if (scaleParams) scaleParams.size = 1;
 
       // Gunakan tema malam sebagai dasar
-      lightingThemes.night(); 
-      
+      lightingThemes.night();
+
       // --- HARDCODE SHADOW MALAM ---
       // Target cahaya pas di mobil
       lightingConfig.targetX = 20;
       lightingConfig.targetZ = -60;
-      
+
       // Bulan (Directional Light)
       lightingConfig.dirPositionX = -50; // Bulan dari kiri
       lightingConfig.dirPositionY = 100; // Tinggi
       lightingConfig.dirPositionZ = 50;
       lightingConfig.dirColor = "#aaccff"; // Cahaya bulan kebiruan
-      lightingConfig.dirIntensity = 0.8;   // Cukup terang untuk bikin bayangan
-      
+      lightingConfig.dirIntensity = 0.8; // Cukup terang untuk bikin bayangan
+
       // Shadow (Area kecil agar tajam di aspal gelap)
-      lightingConfig.shadowRange = 150; 
+      lightingConfig.shadowRange = 150;
       lightingConfig.shadowBias = -0.0001;
-      
+
       // Ambient (Biar mobil ga hitam legam)
-      lightingConfig.ambientIntensity = 0.3; 
+      lightingConfig.ambientIntensity = 0.3;
       lightingConfig.ambientColor = "#111122"; // Biru malam
-      
+
       updateLighting(); // Apply
-      
+
       // Wajib nyalakan lampu mobil
-      toggleCarLights(true); 
+      toggleCarLights(true);
 
       camera.near = 0.05;
       camera.updateProjectionMatrix();
@@ -1250,26 +1223,30 @@ function scene_Highway() {
           // Fase Awal
           if (t < 1.0) {
             carSpeed = 0;
-          } 
+          }
           // 🔥 Fase STOP (Detik 8) 🔥
           else if (t >= 8.0) {
-             carSettings.autoDrive = false;
-             carSpeed = 0; 
-             currentRotSpeed = 0;
-             steeringAngle = 0;
+            carSettings.autoDrive = false;
+            carSpeed = 0;
+            currentRotSpeed = 0;
+            steeringAngle = 0;
           }
           // Fase Jalan
           else {
             if (!carSettings.autoDrive) carSettings.autoDrive = true;
             if (turnTimer > 0) {
               turnTimer -= FIXED_STEP;
-              if (turnTimer <= 0) { steeringAngle = 0; currentRotSpeed = 0; turnTimer = 0; }
+              if (turnTimer <= 0) {
+                steeringAngle = 0;
+                currentRotSpeed = 0;
+                turnTimer = 0;
+              }
             }
             if (currentTargetIndex < TRACK_PATH.length) {
               const target = TRACK_PATH[currentTargetIndex];
               const carPos = new THREE.Vector2(carModel.position.x, carModel.position.z);
               const targetPos = new THREE.Vector2(target.x, target.z);
-              if (carPos.distanceTo(targetPos) < 2.0) { 
+              if (carPos.distanceTo(targetPos) < 2.0) {
                 steeringAngle = target.turnVal;
                 currentRotSpeed = target.rotSpeed;
                 turnTimer = target.duration;
@@ -1296,12 +1273,12 @@ function scene_Highway() {
         if (t < 3.0) {
           camOffset = new THREE.Vector3(0.0, 10.0, -8.0);
           lookTargetOffset = new THREE.Vector3(0, 0.0, 8.0);
-        } 
+        }
         // Shot 2: Helicopter Side (3-6s)
         else if (t >= 3.0 && t < 6.0) {
           camOffset = new THREE.Vector3(12.0, 12.0, -2.0);
           lookTargetOffset = new THREE.Vector3(0, 0.0, 4.0);
-        } 
+        }
         // Shot 3: Drone to EXTERIOR Side (6s++)
         else {
           const zoomStartTime = 6.0;
@@ -1313,7 +1290,7 @@ function scene_Highway() {
           const endPos = new THREE.Vector3(5.0, 2.0, -5.0); // Tetap di luar
 
           const startLook = new THREE.Vector3(0, 0.0, 10.0);
-          const endLook = new THREE.Vector3(0, 0.5, 0.0); 
+          const endLook = new THREE.Vector3(0, 0.5, 0.0);
 
           camOffset = new THREE.Vector3().lerpVectors(startPos, endPos, smoothP);
           lookTargetOffset = new THREE.Vector3().lerpVectors(startLook, endLook, smoothP);
@@ -1337,82 +1314,28 @@ function scene_Highway() {
 // Map 4
 // =========================================
 function scene_MountainRoad() {
-  console.log("🎬 Map 4 Mountain Road ");
+  console.log("🎬 Map 4 Mountain Road (Cinematic Camera Added)");
 
   if (typeof AutoShowcase !== "undefined") AutoShowcase.active = false;
+
   fadeOut(() => {
-      coreLoadMap("mountain_road_scene.glb", () => {
+    coreLoadMap("mountain_road_scene.glb", () => {
       // =========================================
-      // 1. SETTING JALUR (HYBRID SYSTEM)
+      // 1. SETTING JALUR (TETAP SAMA)
       // =========================================
       const TRACK_PATH = [
-        // --- TIKUNGAN 1
-        {
-          x: -1.0,
-          z: -2.28, // 📍 MULAI BELOK DISINI (Koordinat Anda)
-          turnVal: -0.4, // Kekuatan Belok (Negatif = Kanan)
-          rotSpeed: 0.03, // Kecepatan putar body
-          name: "Tikungan 1",
-        },
-        {
-          x: -0.99,
-          z: -2.23, // 📍 Koordinat Selesai (Contoh)
-          turnVal: 0.0, // Ban Lurus
-          rotSpeed: 0.0, // Stop Putar Body
-          name: "Selesai Tikungan 1 (Lurus)",
-        },
+        { x: -1.0, z: -2.28, turnVal: -0.4, rotSpeed: 0.0405, duration: 0.45, name: "Tikungan 1" },
 
-        // --- TIKUNGAN 2
-        {
-          x: -0.96,
-          z: -1.85, // 📍 Koordinat dari Laporan Anda
-          turnVal: 0.4, // Ganti tanda: (-) Kanan, (+) Kiri
-          rotSpeed: 0.035, // ⚙️ INI PENGATUR KETAJAMAN BELOK
-          duration: 0.345, // Berapa lama dia belok
-          name: "Tikungan 2",
-        },
+        { x: -0.96, z: -1.85, turnVal: 0.4, rotSpeed: 0.0335, duration: 0.345, name: "Tikungan 2" },
 
-        // --- TIKUNGAN 3
-        {
-          x: -1.04,
-          z: -1.47, // 📍 Koordinat dari Laporan Anda
-          turnVal: 0.4, // Ganti tanda: (-) Kanan, (+) Kiri
-          rotSpeed: -0.03, // ⚙️ INI PENGATUR KETAJAMAN BELOK
-          duration: 0.25, // Berapa lama dia belok
-          name: "Tikungan 3",
-        },
+        { x: -1.04, z: -1.47, turnVal: 0.4, rotSpeed: -0.028, duration: 0.25, name: "Tikungan 3" },
 
-        // --- TIKUNGAN 4
-        {
-          x: -1.02,
-          z: -1.13, // 📍 Koordinat dari Laporan Anda
-          turnVal: -0.4, // Ganti tanda: (-) Kanan, (+) Kiri
-          rotSpeed: -0.027, // ⚙️ INI PENGATUR KETAJAMAN BELOK
-          // duration: 0.85, // Berapa lama dia belok
-          name: "Tikungan 4",
-        },
+        { x: -1.02, z: -1.13, turnVal: -0.4, rotSpeed: -0.045, duration: 0.45, name: "Tikungan 4" },
 
-        {
-          x: -0.98,
-          z: -1.06, // 📍 Koordinat Selesai (Contoh)
-          turnVal: 0.0, // Ban Lurus
-          rotSpeed: 0.0, // Stop Putar Body
-          name: "Selesai Tikungan 4 (Lurus)",
-        },
-
-        // --- TIKUNGAN 5
-        {
-          x: -0.75,
-          z: -0.8, // 📍 Koordinat dari Laporan Anda
-          turnVal: -0.4, // Ganti tanda: (-) Kanan, (+) Kiri
-          rotSpeed: 0.035, // ⚙️ INI PENGATUR KETAJAMAN BELOK
-          duration: 0.35, // Berapa lama dia belok
-          name: "Tikungan 5",
-        },
+        { x: -0.75, z: -0.8, turnVal: -0.4, rotSpeed: 0.035, duration: 0.35, name: "Tikungan 5" },
       ];
-
       // =========================================
-      // 2. SETUP DASAR
+      // 2. SETUP DASAR (TETAP SAMA)
       // =========================================
       setSpawn(-1.14, 10, -2.53, 6.83);
 
@@ -1421,25 +1344,18 @@ function scene_MountainRoad() {
       if (scaleParams) scaleParams.size = 0.01;
 
       lightingThemes.daylight();
-        lightingConfig.targetX = 119;
-        lightingConfig.targetZ = -197;
-        
-        // Area Shadow Sempit (Biar Tajam)
-        lightingConfig.shadowRange = 300; 
-        
-        // Posisi Matahari (Sunset: Rendah & Miring)
-        lightingConfig.dirPositionX = 100;
-        lightingConfig.dirPositionY = 50; 
-        lightingConfig.dirPositionZ = 50;
-        
-        // Kualitas Shadow
-        lightingConfig.shadowMapSize = 4096; // High Res
-        lightingConfig.shadowBias = -0.0001; 
-        
-        updateLighting(); // Apply changes!
-      lightingConfig.ambientIntensity = 0.4;
-      lightingConfig.dirIntensity = 2.5; // Naikkan biar "nendang"
+      lightingConfig.targetX = 119;
+      lightingConfig.targetZ = -197;
+      lightingConfig.shadowRange = 300;
+      lightingConfig.dirPositionX = 100;
+      lightingConfig.dirPositionY = 50;
+      lightingConfig.dirPositionZ = 50;
+      lightingConfig.shadowMapSize = 4096;
+      lightingConfig.shadowBias = -0.0001;
 
+      updateLighting();
+      lightingConfig.ambientIntensity = 0.4;
+      lightingConfig.dirIntensity = 2.5;
 
       toggleCarLights(false);
 
@@ -1452,87 +1368,141 @@ function scene_MountainRoad() {
       carSettings.turnSpeed = 0.05;
       carSpeed = 0;
 
-      // Status Sistem
       let currentTargetIndex = 0;
       let currentRotSpeed = 0;
-      let stopTurnTime = 0; // Waktu kapan harus berhenti belok
+      let stopTurnTime = 0;
 
       // =========================================
       // 3. LOGIKA EKSEKUSI
       // =========================================
       Director.loadScenario((delta, t) => {
-        if (t < 1.0) {
+        // --- A. Start Mobil (Diubah jadi 4 detik) ---
+        if (t < 4.0) {
           carSpeed = 0;
         } else {
           if (!carSettings.autoDrive) carSettings.autoDrive = true;
 
-          // A. CEK APAKAH WAKTUNYA KEMBALI LURUS?
-          // Jika waktu sekarang (t) sudah melewati batas waktu stop (stopTurnTime)
-          // DAN kita sedang dalam mode belok (stopTurnTime > 0)
+          // Logic Lurus
           if (stopTurnTime > 0 && t > stopTurnTime) {
             console.log("⏹️ SELESAI BELOK -> LURUS");
-            steeringAngle = 0; // Luruskan setir
-            currentRotSpeed = 0; // Stop putar body
-            stopTurnTime = 0; // Reset timer
+            steeringAngle = 0;
+            currentRotSpeed = 0;
+            stopTurnTime = 0;
           }
 
-          // B. CEK KOORDINAT START BELOK
+          // Logic Belok
           if (currentTargetIndex < TRACK_PATH.length) {
             const target = TRACK_PATH[currentTargetIndex];
-
             const carPos = new THREE.Vector2(carModel.position.x, carModel.position.z);
             const targetPos = new THREE.Vector2(target.x, target.z);
             const dist = carPos.distanceTo(targetPos);
 
-            // Gunakan presisi tinggi (0.05)
             if (dist < 0.05) {
               console.log("▶️ MULAI BELOK:", target.name);
-
-              // 1. Eksekusi Belok
               steeringAngle = target.turnVal;
               currentRotSpeed = target.rotSpeed;
-
-              // 2. Set Kapan Harus Berhenti
-              // Waktu Stop = Waktu Sekarang + Durasi yang diinginkan
-              stopTurnTime = t + target.duration;
-
-              // 3. Lanjut ke antrian berikutnya
+              stopTurnTime = t + (target.duration || 0);
               currentTargetIndex++;
             }
           }
 
-          // C. ROTASI BODY (DENGAN PEREDAM)
+          // Rotasi Body
           if (currentRotSpeed !== 0) {
-            // 1. Hitung FPS Factor (Anti-Lag)
             const fpsFactor = delta / 0.0166;
-
-            // 2. GLOBAL REDUCER (PENGATUR KEKUATAN)
-            // Jika belokan terlalu drastis, KECILKAN angka ini.
-            // 1.0 = Kekuatan Penuh
-            // 0.6 = Kekuatan 60% (Lebih halus)
             const GLOBAL_POWER = 0.33;
-
-            // 3. Terapkan Rumus
             carModel.rotation.y -= currentRotSpeed * fpsFactor * GLOBAL_POWER;
           }
         }
 
-        // === KAMERA ===
-        const distOffset = new THREE.Vector3(0.0, 0.04, -0.08);
-        distOffset.applyQuaternion(carModel.quaternion);
+        // =========================================
+        // 🎥 KAMERA CINEMATIC (INI YANG BARU)
+        // =========================================
+        if (carModel) {
+          // FASE 1: ORBIT (0 - 4 Detik)
+          // Kamera berputar mengelilingi mobil saat diam
+          if (t < 4.0) {
+            const angle = t * 0.5; // Kecepatan putar
+            const radius = 0.15; // Jarak orbit (sesuai skala mobil)
 
-        const worldCam = carModel.position.clone().add(distOffset);
-        camera.position.lerp(worldCam, 0.2);
+            // Rumus Matematika Lingkaran
+            const orbitX = carModel.position.x + Math.cos(angle) * radius;
+            const orbitZ = carModel.position.z + Math.sin(angle) * radius;
+            const orbitY = carModel.position.y + 0.03 + t * 0.005; // Naik perlahan
 
-        const targetLook = carModel.position.clone();
-        targetLook.y += 0.02;
-        controls.target.lerp(targetLook, 0.2);
+            camera.position.set(orbitX, orbitY, orbitZ);
+            controls.target.copy(carModel.position); // Fokus ke mobil
+            camera.fov = 50;
+          }
+
+          // FASE 2: ACTION CAM (4-25 Detik)
+          else if (t >= 4.0 && t < 25.0) {
+            let targetOffset, lookTarget, smoothSpeed;
+
+            // A. KAMERA BELAKANG (Detik 4-12 & 19-25)
+            // Ini kamera standar di belakang mobil
+            if (t <= 12.0 || t >= 19.0) {
+              targetOffset = new THREE.Vector3(0.0, 0.03, -0.08);
+              lookTarget = new THREE.Vector3(0, 0, 0.5);
+              smoothSpeed = 0.1; // Speed normal
+            }
+
+            // B. KAMERA SAMPING (Detik 12-19) -> BAGIAN INI YANG DIPERBAIKI
+            // Kamera pindah ke samping kiri depan
+            else {
+              // Z = 0.15 (Kita majukan supaya kamera ada di DEPAN pintu mobil)
+              // X = 0.1 (Agak jauh dikit biar body mobil kelihatan)
+              targetOffset = new THREE.Vector3(0.1, 0.02, 0.15);
+
+              lookTarget = new THREE.Vector3(0, 0, 0.0);
+
+              // Speed = 0.2 (Kita percepat agar kamera menempel ketat dan tidak tertinggal)
+              smoothSpeed = 0.2;
+            }
+
+            // 1. Terapkan Posisi
+            const relOffset = targetOffset.clone();
+            relOffset.applyQuaternion(carModel.quaternion);
+            const destPos = carModel.position.clone().add(relOffset);
+            camera.position.lerp(destPos, smoothSpeed);
+
+            // 2. Terapkan Arah Pandang (Look At)
+            // Tilt (Nengok) hanya aktif saat kamera belakang
+            if (currentRotSpeed !== 0 && (t <= 12.0 || t >= 19.0)) {
+              lookTarget.x = steeringAngle * 0.4;
+            }
+
+            const lookOffset = lookTarget.clone();
+            lookOffset.applyQuaternion(carModel.quaternion);
+            const targetLook = carModel.position.clone().add(lookOffset);
+            controls.target.lerp(targetLook, smoothSpeed);
+
+            // 3. Zoom Effect
+            let targetFOV = 50;
+            if (Math.abs(currentRotSpeed) > 0.01) targetFOV = 70;
+            camera.fov = THREE.MathUtils.lerp(camera.fov, targetFOV, 0.05);
+          }
+
+          // FASE 3: DRONE ENDING (25 Detik ke atas)
+          // Terbang ke langit meninggalkan mobil
+          else {
+            const endOffset = new THREE.Vector3(0, 0.15, -0.2);
+            endOffset.applyQuaternion(carModel.quaternion);
+            const endPos = carModel.position.clone().add(endOffset);
+
+            camera.position.lerp(endPos, 0.05);
+            controls.target.copy(carModel.position);
+
+            // Efek fade out dengan FOV
+            camera.fov = THREE.MathUtils.lerp(camera.fov, 60, 0.05);
+          }
+
+          camera.updateProjectionMatrix();
+        }
       });
 
       Director.play();
     });
   });
-  
 }
 // =========================================
 // Map 5
@@ -1855,9 +1825,9 @@ const lightingConfig = {
   shadowMapSize: 4096,
   shadowBias: -0.0005, // Bias sedikit negatif agar tidak ada artifacts
   shadowRadius: 1,
-  shadowRange: 50,     // Luas area bayangan
-  targetX: 0,           // Fokus cahaya X
-  targetZ: 0,           // Fokus cahaya Z
+  shadowRange: 50, // Luas area bayangan
+  targetX: 0, // Fokus cahaya X
+  targetZ: 0, // Fokus cahaya Z
   shadowAutoUpdate: true,
   theme: "daylight",
 };
@@ -1866,64 +1836,60 @@ function updateLighting() {
   // 1. Update Warna & Intensitas
   ambientLight.intensity = lightingConfig.ambientIntensity;
   ambientLight.color.set(lightingConfig.ambientColor);
-  
+
   dirLight.intensity = lightingConfig.dirIntensity;
   dirLight.color.set(lightingConfig.dirColor);
 
-  dirLight.position.set(
-    lightingConfig.targetX + lightingConfig.dirPositionX, 
-    lightingConfig.dirPositionY, 
-    lightingConfig.targetZ + lightingConfig.dirPositionZ
-  );
+  dirLight.position.set(lightingConfig.targetX + lightingConfig.dirPositionX, lightingConfig.dirPositionY, lightingConfig.targetZ + lightingConfig.dirPositionZ);
 
   // Note: Posisi lampu TIDAK DIATUR disini lagi, tapi di updateSunPosition()
 
   hemisphereLight.intensity = lightingConfig.hemisphereIntensity;
   hemisphereLight.color.set(lightingConfig.skyColor);
   hemisphereLight.groundColor.set(lightingConfig.groundColor);
-  
+
   spotLight.intensity = lightingConfig.spotIntensity;
   spotLight.color.set(lightingConfig.spotColor);
   spotLight.distance = lightingConfig.spotDistance;
   spotLight.angle = THREE.MathUtils.degToRad(lightingConfig.spotAngle);
   spotLight.penumbra = lightingConfig.spotPenumbra;
   spotLight.decay = lightingConfig.spotDecay;
-  
+
   pointLight.intensity = lightingConfig.pointIntensity;
   pointLight.color.set(lightingConfig.pointColor);
   pointLight.distance = lightingConfig.pointDistance;
-  
+
   // ==========================================
   // 🔥 SHADOW QUALITY SETTINGS 🔥
   // ==========================================
   dirLight.castShadow = lightingConfig.shadowEnabled;
   spotLight.castShadow = lightingConfig.shadowEnabled;
   renderer.shadowMap.enabled = lightingConfig.shadowEnabled;
-  
+
   // Tipe Shadow (Soft)
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   // Bias & Resolusi
-  dirLight.shadow.bias = lightingConfig.shadowBias; 
-  dirLight.shadow.normalBias = 0.02; 
+  dirLight.shadow.bias = lightingConfig.shadowBias;
+  dirLight.shadow.normalBias = 0.02;
   dirLight.shadow.radius = lightingConfig.shadowRadius;
   dirLight.shadow.mapSize.width = 4096;
   dirLight.shadow.mapSize.height = 4096;
 
   // Ukuran Kamera Bayangan (Diatur oleh GUI Area Size)
-  const range = lightingConfig.shadowRange; 
-  
+  const range = lightingConfig.shadowRange;
+
   dirLight.shadow.camera.left = -range;
   dirLight.shadow.camera.right = range;
   dirLight.shadow.camera.top = range;
   dirLight.shadow.camera.bottom = -range;
-  
+
   // Far Plane
-  dirLight.shadow.camera.far = 5000; 
+  dirLight.shadow.camera.far = 5000;
   dirLight.shadow.camera.near = 0.5;
-  
+
   dirLight.shadow.camera.updateProjectionMatrix();
-  
+
   // Helper Visual
   // if (!window.shadowHelper) {
   //    window.shadowHelper = new THREE.CameraHelper(dirLight.shadow.camera);
@@ -1940,23 +1906,19 @@ function updateSunPosition() {
 
   // --- LOGIKA UTAMA ---
   if (lightingConfig.shadowAutoUpdate && carModel) {
-      // MODE AUTO: Fokus ke Mobil
-      centerPos.copy(carModel.position);
-      
-      // Update angka di GUI slider agar ikut bergerak (Feedback Visual)
-      lightingConfig.targetX = centerPos.x;
-      lightingConfig.targetZ = centerPos.z;
+    // MODE AUTO: Fokus ke Mobil
+    centerPos.copy(carModel.position);
+
+    // Update angka di GUI slider agar ikut bergerak (Feedback Visual)
+    lightingConfig.targetX = centerPos.x;
+    lightingConfig.targetZ = centerPos.z;
   } else {
-      // MODE MANUAL: Fokus ke angka Slider GUI
-      centerPos.set(lightingConfig.targetX, 0, lightingConfig.targetZ);
+    // MODE MANUAL: Fokus ke angka Slider GUI
+    centerPos.set(lightingConfig.targetX, 0, lightingConfig.targetZ);
   }
 
   // 1. Pindahkan Lampu (Titik Fokus + Offset Langit)
-  dirLight.position.set(
-      centerPos.x + lightingConfig.dirPositionX,
-      centerPos.y + lightingConfig.dirPositionY,
-      centerPos.z + lightingConfig.dirPositionZ
-  );
+  dirLight.position.set(centerPos.x + lightingConfig.dirPositionX, centerPos.y + lightingConfig.dirPositionY, centerPos.z + lightingConfig.dirPositionZ);
 
   // 2. Arahkan Target Lampu ke Titik Fokus
   dirLight.target.position.copy(centerPos);
@@ -1965,7 +1927,6 @@ function updateSunPosition() {
   // 3. Update Kotak Kuning (Helper)
   if (window.shadowHelper) window.shadowHelper.update();
 }
-
 
 // Themes
 const lightingThemes = {
@@ -2321,29 +2282,29 @@ animate(0);
 
 const fadeCurtain = document.getElementById("global-fade-curtain") || document.createElement("div");
 if (!fadeCurtain.id) {
-    fadeCurtain.id = "global-fade-curtain"; 
-    fadeCurtain.style.cssText = `
+  fadeCurtain.id = "global-fade-curtain";
+  fadeCurtain.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: #000; opacity: 1; pointer-events: none;
         transition: opacity 1.0s ease-in-out; z-index: 10000;
     `;
-    document.body.appendChild(fadeCurtain);
+  document.body.appendChild(fadeCurtain);
 }
 
 // Fungsi untuk menggelapkan layar (keluar scene)
 function fadeOut(callback) {
-    fadeCurtain.style.opacity = "1"; // Layar jadi hitam
-    setTimeout(() => {
-        if (callback) callback(); // Load map baru saat gelap
-    }, 1000); // Tunggu 1 detik
+  fadeCurtain.style.opacity = "1"; // Layar jadi hitam
+  setTimeout(() => {
+    if (callback) callback(); // Load map baru saat gelap
+  }, 1000); // Tunggu 1 detik
 }
 
 // Fungsi untuk menerangkan layar (masuk scene)
 // Panggil ini di dalam coreLoadMap setelah model selesai diload
 function fadeIn() {
-    setTimeout(() => {
-        fadeCurtain.style.opacity = "0"; // Layar jadi bening
-    }, 100);
+  setTimeout(() => {
+    fadeCurtain.style.opacity = "0"; // Layar jadi bening
+  }, 100);
 }
 
 function triggerTransition(callback) {
