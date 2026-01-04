@@ -887,7 +887,7 @@ function scene_City() {
         if (t > 3.5 && t < 4.0) {
           const p = THREE.MathUtils.smoothstep(t, 3.5, 4.0);
           // Ganti 0.025 jadi 0.045 biar beloknya nendang
-          carModel.rotation.y -= 0.028 * p;
+          carModel.rotation.y -= 0.023 * p;
 
           steeringAngle = -0.5 * p;
         } else if (t >= 4.0) {
@@ -2039,84 +2039,13 @@ carFolder
 carFolder.open();
 
 // Camera Presets
-const camPresets = {
-  default: () => {
-    cameraConfig.distance = 12;
-    cameraConfig.height = 6;
-    cameraConfig.fov = 60;
-    cameraConfig.lookAtY = 0;
-  },
-  topDown: () => {
-    cameraConfig.distance = 1;
-    cameraConfig.height = 30;
-    cameraConfig.fov = 60;
-    cameraConfig.lookAtY = -10;
-  },
-  racing: () => {
-    cameraConfig.distance = 6;
-    cameraConfig.height = 2;
-    cameraConfig.fov = 80;
-    cameraConfig.lookAtY = 1;
-  },
-  cinematic: () => {
-    cameraConfig.distance = 20;
-    cameraConfig.height = 3;
-    cameraConfig.fov = 40;
-    cameraConfig.lookAtY = 0;
-  },
-  driverView: () => {
-    cameraConfig.distance = 3;
-    cameraConfig.height = 1.5;
-    cameraConfig.fov = 70;
-    cameraConfig.lookAtY = 1;
-  },
-  wheelCinematic: () => {
-    // Kita gunakan Director supaya kamera bisa dikontrol manual sepenuhnya per frame
-    Director.playScenario((delta, time) => {
-      if (!carModel) return;
-
-      // 1. Tentukan Posisi Kamera (Di samping depan kiri mobil, rendah)
-      // X=2.0 (Geser kanan), Y=0.4 (Rendah), Z=1.2 (Dekat roda depan)
-      const relativeCamPos = new THREE.Vector3(2.5, 0.5, 1.2);
-
-      // Konversi posisi relatif ke posisi dunia (mengikuti rotasi mobil)
-      const worldCamPos = relativeCamPos.applyMatrix4(carModel.matrixWorld);
-
-      // 2. Tentukan Titik Fokus (Ke arah Roda Depan Kanan)
-      // Kita arahkan sedikit ke bawah agar velg terlihat jelas
-      const relativeTarget = new THREE.Vector3(0.8, 0.35, 1.4);
-      const worldTarget = relativeTarget.applyMatrix4(carModel.matrixWorld);
-
-      // 3. Update Kamera
-      // Gunakan lerp agar pergerakan kamera halus (sedikit delay biar ada kesan berat)
-      camera.position.lerp(worldCamPos, 0.1);
-      camera.lookAt(worldTarget);
-
-      // 4. Efek Kecepatan (FOV berubah saat ngebut)
-      // Semakin cepat, FOV semakin lebar
-      const baseFov = 50;
-      const speedFactor = Math.abs(carSpeed) * 50;
-      camera.fov = baseFov + speedFactor;
-      camera.updateProjectionMatrix();
-    });
-
-    console.log("🎥 Mode: Wheel Cinematic Shot Activated");
-  },
-};
-
 const camFolder = gui.addFolder("🎥 Camera Director");
 
 const directorFolder = camFolder.addFolder("🎬 Action");
 directorFolder.add(Director, "play").name("▶ Play Cinematic");
 directorFolder.add(Director, "stop").name("⏹ Stop / Manual");
 directorFolder.open();
-const presetFolder = camFolder.addFolder("📸 Camera Presets");
-presetFolder.add(camPresets, "default").name("🎯 Normal View");
-presetFolder.add(camPresets, "topDown").name("🛰️ Top Down");
-presetFolder.add(camPresets, "racing").name("🏁 Racing");
-presetFolder.add(camPresets, "cinematic").name("🎬 Cinematic");
-presetFolder.add(camPresets, "driverView").name("👨‍✈️ Driver View");
-presetFolder.add(camPresets, "wheelCinematic").name("🛞 Wheel Shot (Cinematic)");
+
 
 const followCamFolder = camFolder.addFolder("📡 Follow Camera");
 followCamFolder.add(carSettings, "followCamera").name("Enabled");
