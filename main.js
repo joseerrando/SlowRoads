@@ -496,37 +496,7 @@ const CAM_CUTS = {
     tgt: new THREE.Vector3(0, 0, 5),
     roll: new THREE.Vector3(0, 0, 1),
   },
-  // Shot untuk Coast Road
-  Coast_Intro: {
-    pos: new THREE.Vector3(50, 10, 50),
-    tgt: new THREE.Vector3(50, 5, 20),
-    roll: new THREE.Vector3(0, 1, 0),
-  },
-  Coast_Wheel: {
-    pos: new THREE.Vector3(52, 1, 22),
-    tgt: new THREE.Vector3(50, 0.5, 20),
-    roll: new THREE.Vector3(0, 1, 0),
-  },
 
-  // --- CITY SHOTS---
-  // Shot 1: Dari depan bawah (Intro Parkir)
-  City_Park_Low: {
-    pos: new THREE.Vector3(125, -8, -190), // Di depan mobil agak nyerong
-    tgt: new THREE.Vector3(119, -9, -197), // Fokus ke mobil
-    roll: new THREE.Vector3(0, 1, 0),
-  },
-  // Shot 2: Drone View (Untuk melihat mobil belok)
-  City_Drone_Turn: {
-    pos: new THREE.Vector3(100, 10, -210), // Dari atas gedung/drone
-    tgt: new THREE.Vector3(119, -9, -197), // Fokus ke area belokan
-    roll: new THREE.Vector3(0, 1, 0),
-  },
-  // Shot 3: Cinematic Side (Action)
-  City_Action_Side: {
-    pos: new THREE.Vector3(115, -8, -205), // Samping mobil
-    tgt: new THREE.Vector3(119, -9, -197),
-    roll: new THREE.Vector3(0, 1, 0),
-  },
 };
 
 // --- B. DIRECTOR ENGINE ---
@@ -699,116 +669,9 @@ function setSpawn(x, y, z, rotationY = 0) {
   }
 }
 
-// =========================================
-// Map yang di pakai
-// =========================================
 
-function scene_AmericanCurve() {
-  console.log("🎬 Map: American Curve");
-  coreLoadMap("american_road_curve_ahead.glb", () => {
-    setSpawn(-200, 427, -290, Math.PI); // Default spawn
-    lightingThemes.daylight();
-    //
-    scaleParams.autoScale = false;
-    if (carModel) carModel.scale.set(1.5, 1.5, 1.5);
-    if (scaleParams) scaleParams.size = 1.5;
 
-    //
-    // Setup Basic Cinematic
-    Director.loadScenario((delta, timeInShot) => {
-      if (Director.currentCut === null) {
-        // Gunakan preset kamera cinematic default jika belum ada cut khusus
-        camPresets.cinematic();
-        Director.currentCut = "Intro";
-      }
-      // Intro 3 detik lalu main
-      if (timeInShot > 3.0) Director.stop();
-    });
-  });
-}
-function scene_CoastRoadAndRocks() {
-  console.log("🎬 Map: Coast Road");
-  coreLoadMap("coast_road_and_rocks_ver2.0.glb", () => {
-    setSpawn(-55, 13, 43.5, Math.PI / 2);
-    lightingThemes.sunset();
 
-    scaleParams.autoScale = false;
-    if (carModel) carModel.scale.set(1, 1, 1);
-    if (scaleParams) scaleParams.size = 1;
-
-    Director.loadScenario((delta, timeInShot) => {
-      if (Director.currentCut === null) Director.cutTo("Coast_Intro");
-
-      if (Director.currentCut === "Coast_Intro") {
-        controls.target.x += 2 * delta; // Panning
-        if (timeInShot > 5) Director.cutTo("Coast_Wheel");
-      }
-
-      if (Director.currentCut === "Coast_Wheel") {
-        if (timeInShot > 3) {
-          Director.stop();
-          camPresets.driverView(); // Ganti ke view supir
-        }
-      }
-    });
-  });
-}
-function scene_CoastTunnel() {
-  console.log("🎬 Map: Coast Tunnel");
-  if (scaleParams) scaleParams.size = 0.5;
-  coreLoadMap("coast_road_tunnel_and_rock.glb", () => {
-    setSpawn(106, 8, 0.5, (Math.PI * 3) / 2);
-    lightingThemes.night();
-  });
-}
-function scene_HokkaidoSnow() {
-  console.log("🎬 Map: Hokkaido Snowfield");
-  coreLoadMap("hokkaido_snowfield_mountain_road_and_forest.glb", () => {
-    setSpawn(0, 2, 0, 0);
-    lightingThemes.foggy(); // Tema salju
-  });
-}
-function scene_ReefCoast() {
-  console.log("🎬 Map: Reef & Coastal");
-  coreLoadMap("reef_and_coastal_road.glb", () => {
-    setSpawn(63, 15, 38, Math.PI * 2);
-
-    scaleParams.autoScale = false;
-    if (carModel) carModel.scale.set(0.5, 0.5, 0.5);
-    if (scaleParams) scaleParams.size = 0.5;
-
-    lightingThemes.clear(); // Laut cerah
-  });
-}
-function scene_Mestia() {
-  console.log("🎬 Map: Road to Mestia");
-  coreLoadMap("road_to_mestia_svaneti.glb", () => {
-    setSpawn(0, 2, 0, 0);
-    lightingThemes.foggy(); // Pegunungan berkabut
-  });
-}
-function scene_TreesRoad() {
-  console.log("🎬 Map: Road with Trees");
-  coreLoadMap("road_with_trees.glb", () => {
-    setSpawn(0, 0.5, 0, 0);
-    lightingThemes.sunset(); // Bagus untuk efek cahaya sela pohon
-  });
-}
-function scene_TunnelRoad() {
-  console.log("🎬 Map: Tunnel Road");
-  coreLoadMap("tunnel_road.glb", () => {
-    setSpawn(0, 1, 0, 0);
-    lightingThemes.night(); // Tunnel harus gelap
-    // Nyalakan lampu mobil otomatis jika fitur ada
-  });
-}
-function scene_DesertRoad() {
-  coreLoadMap("desert_road_segment_scan.glb", () => {
-    setSpawn(0, 500, 0, 0);
-    lightingThemes.daylight();
-    // Tidak ada cinematic, langsung main
-  });
-}
 function scene_TestMode() {
   coreLoadMap("test", () => {
     setSpawn(0, 0, 0, 0);
@@ -1494,74 +1357,128 @@ function scene_MountainRoad() {
 // Map 5
 // =========================================
 function scene_AmericanUnderpass() {
-  console.log("🎬 Map 5: American Underpass");
+  console.log("🎬 Map 5: American Underpass (Final Fix)");
 
-  coreLoadMap("american_road_underpass_bridge.glb", () => {
-    setSpawn(-1124, -15, -94, Math.PI / 2);
-    lightingThemes.daylight();
+  fadeOut(() => {
+    coreLoadMap("american_road_underpass_bridge.glb", () => {
+      
+      // 1. SPAWN POINT
+      const spawnX = -1124;
+      const spawnY = -15;
+      const spawnZ = -94;
 
-    // ============================================
-    // 1. SETTING SKALA (30)
-    // ============================================
-    scaleParams.autoScale = false;
-    const BIG_SCALE = 30;
+      setSpawn(spawnX, spawnY, spawnZ, Math.PI / 2);
+      lightingThemes.daylight();
 
-    if (carModel) carModel.scale.set(BIG_SCALE, BIG_SCALE, BIG_SCALE);
-    if (scaleParams) scaleParams.size = BIG_SCALE;
+      // ============================================
+      // 2. SETTING SKALA (30)
+      // ============================================
+      scaleParams.autoScale = false;
+      const BIG_SCALE = 30;
 
-    // ============================================
-    // 2. RENDER SETTINGS
-    // ============================================
-    camera.near = 2.0;
-    camera.far = 100000;
-    camera.updateProjectionMatrix();
+      if (carModel) carModel.scale.set(BIG_SCALE, BIG_SCALE, BIG_SCALE);
+      if (scaleParams) scaleParams.size = BIG_SCALE;
 
-    if (scene.fog) {
-      scene.fog.near = 5000;
-      scene.fog.far = 150000;
-    }
+      // ============================================
+      // 🔥 3. SETTING CAHAYA & SHADOW (UPDATED) 🔥
+      // ============================================
+      
+      // A. Shadow (Sama seperti sebelumnya)
+      lightingConfig.shadowAutoUpdate = false; 
+      lightingConfig.targetX = spawnX;
+      lightingConfig.targetZ = spawnZ;
+      lightingConfig.dirPositionX = 100; 
+      lightingConfig.dirPositionY = 500; 
+      lightingConfig.dirPositionZ = 100;
+      lightingConfig.shadowRange = 1000; 
+      
+      updateLighting();
 
-    // ============================================
-    // 3. LOGIKA CINEMATIC
-    // ============================================
-    Director.loadScenario((delta, timeInShot) => {
-      // --- SETUP AWAL ---
-      if (Director.currentCut === null) {
-        Director.cutTo("AU_Start");
-        carSettings.autoDrive = true;
+      // B. FIX MANUAL SHADOW CAMERA
+      if(dirLight) {
+          const range = 1000;
+          dirLight.shadow.camera.left = -range;
+          dirLight.shadow.camera.right = range;
+          dirLight.shadow.camera.top = range;
+          dirLight.shadow.camera.bottom = -range;
+          dirLight.shadow.camera.far = 5000;
+          dirLight.shadow.camera.updateProjectionMatrix();
+      }
+      updateSunPosition();
 
-        // ⚡ 1. DISINI UNTUK MENGATUR KECEPATAN MOBIL ⚡
-        // 15.0 = Pelan
-        // 60.0 = Ngebut (Cocok untuk Scale 30)
-        carSettings.maxSpeed = 60.0;
+      // ============================================
+      // 💡 4. FIX LAMPU MOBIL (SCALE 30) 💡
+      // ============================================
+      
+      // 1. Nyalakan Lampu (Ini akan set intensity default 30)
+      toggleCarLights(true);
+
+      // 2. TIMPA DENGAN POWER RAKSASA
+      // Karena mobil scale 30, kekuatan lampu harus dikali ~100x lipat
+      if (carModel && carModel.userData.lightSources) {
+         console.log("💡 Boosting Car Lights for Giant Scale...");
+         
+         carModel.userData.lightSources.forEach((item) => {
+             if (item.type === "head") {
+                 // LAMPU DEPAN
+                 item.light.distance = 0; // Jangkauan (Asli 80 -> Jadi 4000)
+                 item.light.intensity = 0; // Kekuatan (Asli 30 -> Jadi 5000 biar kelihatan siang bolong)
+                 item.light.angle = 0;      // Sedikit diperlebar
+             } else {
+                 // LAMPU BELAKANG (Rem)
+                 item.light.distance = 500;
+                 item.light.intensity = 1000; // Merah terang
+             }
+         });
+
+         // 3. BOOST GLOW EFFECT (MATERIAL)
+         if (carModel.userData.meshLampuDepan) {
+             carModel.userData.meshLampuDepan.material.emissiveIntensity = 100; // Biar silau
+         }
+         if (carModel.userData.meshLampuBelakang) {
+             carModel.userData.meshLampuBelakang.material.emissiveIntensity = 50;
+         }
       }
 
-      // --- LOOP ANIMASI ---
-      if (Director.currentCut === "AU_Start") {
-        // A. KAMERA MUNDUR
-        // Saya naikkan sedikit jadi 40 biar seimbang sama mobil yang makin ngebut
-        camera.position.z += 40.0 * delta;
+      // ============================================
+      // 5. RENDER SETTINGS & CINEMATIC
+      // ============================================
+      camera.near = 2.0;
+      camera.far = 100000;
+      camera.updateProjectionMatrix();
 
-        // B. ROTASI HALUS (NARROW PAN)
-        if (carModel) {
-          controls.target.copy(carModel.position);
+      if (scene.fog) {
+        scene.fog.near = 5000;
+        scene.fog.far = 150000;
+      }
 
-          // ⚡ 2. DISINI PENGATURAN ROTASINYA ⚡
-
-          // RUMUS: Awal + (Waktu * KecepatanGeser)
-
-          // Awal: -40 (Melirik sedikit ke Kiri) -> Dulu -150 (Terlalu lebar)
-          // Speed: 10 (Geser pelan-pelan) -> Dulu 60 (Terlalu cepat)
-
-          const panOffset = -10 + timeInShot * 10.0;
-
-          // Terapkan (Sumbu Z adalah Kiri/Kanan mobil di map ini)
-          controls.target.z += panOffset;
-
-          // Offset X sedikit biar fokus ke bagian depan mobil
-          controls.target.x -= 30;
+      Director.loadScenario((delta, timeInShot) => {
+        const STOP_TIME = 4;
+        if (Director.currentCut === null) {
+          Director.cutTo("AU_Start");
+          carSettings.autoDrive = true;
+          carSettings.maxSpeed = 30.0;
         }
-      }
+
+        if (Director.currentCut === "AU_Start") {
+          if(timeInShot<4.5){
+            camera.position.z += 40.0 * delta;
+            if (carModel) {
+              controls.target.copy(carModel.position);
+              const panOffset = -10 + timeInShot * 10.0;
+              controls.target.z += panOffset;
+              controls.target.x -= 30;
+            }
+          }
+          if (timeInShot > 3.5) {
+              carSpeed = 0;
+             carSettings.autoDrive = false; 
+             carSettings.maxSpeed = 0.0;
+          } 
+        }
+      });
+      
+      Director.play();
     });
   });
 }
