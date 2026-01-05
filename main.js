@@ -936,73 +936,74 @@ function scene_BridgeDesign() {
         // -90 derajat = Kiri (-X)
         // 180/-180 = Belakang (-Z)
 
+        // ANCHOR SHOT 1
+        const ANCHOR_START_ORBIT = new THREE.Vector3(-2.0, 0.8, -1.8);
+
         // SHOT 1: REAR LEFT REVEAL (0s - 3.5s)
-        // Fokus: Ban Kiri Belakang -> Mundur sedikit ke posisi Orbit
         if (t < 3.5) {
           const p = t / 3.5;
           const smoothP = THREE.MathUtils.smoothstep(p, 0, 1);
 
-          // Start: Nempel Ban Kiri Belakang (X Negatif)
           const startPos = new THREE.Vector3(-1.1, 0.4, -1.0);
-
-          // End: Posisi Awal Orbit (Kiri Belakang Jauh dikit)
-          // Sudut sekitar -135 derajat
-          const endPos = new THREE.Vector3(-2.5, 0.9, -2.5);
+          const endPos = ANCHOR_START_ORBIT;
 
           relOffset = new THREE.Vector3().lerpVectors(startPos, endPos, smoothP);
 
-          // Fokus: Ban Kiri -> Tengah Body
           const startLook = new THREE.Vector3(-0.9, 0.35, -1.0);
           const endLook = new THREE.Vector3(0, 0.6, 0);
           lookTarget = carModel.position.clone().add(new THREE.Vector3().lerpVectors(startLook, endLook, smoothP));
 
-          cameraStiffness = 0.1;
+          cameraStiffness = 0.2;
         }
 
-        // SHOT 2: THE CLOCKWISE ORBIT (3.5s - SELESAI)
-        // Jalur: Kiri Belakang -> Samping Kiri -> Depan -> Samping Kanan
-        else {
-          const orbitDuration = 14.0; // Durasi putaran lambat & elegan
-          const progress = Math.min((t - 3.5) / orbitDuration, 1.0);
+        // SHOT 2: WIDE ORBIT + BOOST (3.5s - 17.5s)
+        else if (t >= 3.5 && t < 11.5) {
+          const duration = 10.0;
+          const progress = (t - 3.5) / duration;
           const smoothP = THREE.MathUtils.smoothstep(progress, 0, 1);
 
-          // --- HITUNG SUDUT (ANGLE) ---
-          // Start Angle: -2.35 Radian (Kiri Belakang / jam 7)
-          // End Angle: +1.57 Radian (Kanan / jam 3)
-          // Perjalanan melewati 0 (Depan / jam 12)
-          const startAngle = -2.35;
-          const endAngle = 1.57;
-
+          const startAngle = -2.6;
+          const endAngle = 1.5;
           const currentAngle = THREE.MathUtils.lerp(startAngle, endAngle, smoothP);
 
-          // --- HITUNG POSISI LINGKARAN ---
-          // Jarak kamera dari mobil (Radius)
-          // Kita mainkan radiusnya: Start 3.5 -> Melebar di Depan 4.5 -> Rapat di Kanan 3.5
-          // Supaya saat di depan mobil terlihat utuh (wide)
           const radiusArc = Math.sin(smoothP * Math.PI);
-          const radius = 3.5 + radiusArc * 1.5;
+          const radius = 3.0 + radiusArc * 3.0;
 
-          // Rumus Konversi Sudut ke Posisi X, Z
-          // X = Sin(angle) * radius (Untuk sumbu samping)
-          // Z = Cos(angle) * radius (Untuk sumbu depan/belakang)
-          // *Note: Di ThreeJS kadang sumbu putar beda, kita sesuaikan manual:
           const x = Math.sin(currentAngle) * radius;
-          const z = Math.cos(currentAngle) * radius;
+          const zBase = Math.cos(currentAngle) * radius;
 
-          // Geser Z maju sedikit untuk kompensasi lag kamera saat mobil jalan
-          const zCompensation = 2.0;
+          // Boost 6.0 agar tidak tertinggal
+          const forwardBoost = smoothP * 6.0;
+          const z = zBase + forwardBoost;
 
-          // Y (Tinggi): Stabil sejajar mata (0.9 - 1.0)
-          const y = 1.0;
+          relOffset = new THREE.Vector3(x, 1.0, z);
+          lookTarget = carModel.position.clone().add(new THREE.Vector3(0, 0.7, 0.0));
 
-          relOffset = new THREE.Vector3(x, y, z + zCompensation);
-
-          // FOKUS KAMERA (Tracking)
-          // Selalu lihat ke body mobil, tapi agak ke depan dikit
-          lookTarget = carModel.position.clone().add(new THREE.Vector3(0, 0.7, 1.0));
-
-          // Stiffness 0.2: Cukup smooth tapi tidak terlalu karet
           cameraStiffness = 0.2;
+        }
+
+        // SHOT 3: THE DEPARTURE (17.5s - 24.5s) -> 7 DETIK SAJA
+        else {
+          const duration = 6.0; // DURASI DIPANGKAS (Cepat)
+
+          // Progress akan cepat mencapai 1.0
+          const progress = Math.min((t - 11.5) / duration, 1.0);
+          const smoothP = THREE.MathUtils.smoothstep(progress, 0, 1);
+
+          // Start: Posisi akhir Shot 2 (Hitungan manual agar nyambung)
+          // X=2.97, Y=1.0, Z=6.21
+          const startPos = new THREE.Vector3(2.97, 1.0, 6.21);
+          const startLook = new THREE.Vector3(0, 0.7, 0.0);
+
+          // End: Low Angle Belakang
+          const endPos = new THREE.Vector3(1.5, 0.4, -6.0);
+          const endLook = new THREE.Vector3(0, 0.5, -2.0);
+
+          relOffset = new THREE.Vector3().lerpVectors(startPos, endPos, smoothP);
+          lookTarget = carModel.position.clone().add(new THREE.Vector3().lerpVectors(startLook, endLook, smoothP));
+
+          // Stiffness sangat rendah (0.05) biar kamera terasa 'berat' dan cepat tertinggal
+          cameraStiffness = 0.05;
         }
 
         const worldCam = relOffset.applyMatrix4(carModel.matrixWorld);
