@@ -128,7 +128,18 @@ window.addEventListener("keydown", (e) => {
   if (key === "p") {
     checkCoordinates();
   }
+  // --- FITUR BARU: Toggle GUI dengan tombol 'V' ---
+  if (key === "v") {
+    const guiContainer = gui.domElement;
+    // Cek apakah sedang hidden atau tidak
+    if (guiContainer.style.display === "none") {
+      guiContainer.style.display = "block"; // Munculkan
+    } else {
+      guiContainer.style.display = "none"; // Sembunyikan
+    }
+  }
 });
+
 
 window.addEventListener("keyup", (e) => {
   keys[e.key.toLowerCase()] = false;
@@ -137,6 +148,8 @@ window.addEventListener("keyup", (e) => {
 // ==========================================
 // 5. HELPER FUNCTIONS
 // ==========================================
+// ==========================================
+
 
 // Fungsi untuk mengecek koordinat
 function checkCoordinates() {
@@ -178,6 +191,7 @@ function loadCar() {
       carWheels = [];
       pivotFL = null;
       pivotFR = null;
+      
 
       // --- B. FUNGSI PEMBANTU: SETUP SMART OFFSET ---
       // Fungsi ini kita taruh di dalam agar mudah akses carModel
@@ -252,50 +266,63 @@ function loadCar() {
   );
 }
 
+
+
 function toggleCarLights(turnOn) {
   if (!carModel) return;
 
   // --- A. SETUP INITIAL (JALAN SEKALI SAJA) ---
   if (!carModel.userData.lightsInitialized) {
-    carModel.userData.lightSources = []; // Penampung cahaya sorot
+    carModel.userData.lightSources = [];
+    carModel.userData.headlightMeshes = [];
+    carModel.userData.taillightMeshes = [];
 
-    // 1. CARI MESH BAWAAN GLB & SIAPKAN MATERIAL
+    // 1. CARI MESH
     carModel.traverse((child) => {
       if (child.isMesh) {
-        // Konfigurasi Lampu Depan
-        if (child.name === "Lampu_Depan") {
-          // Clone material agar tidak merusak part lain yang warnanya sama
-          child.material = child.material.clone();
-          child.material.emissiveMap = null; // Reset map jika ada
-          child.material.emissive = new THREE.Color(0xffffff); // Warna Putih
-          child.material.emissiveIntensity = 0; // Mulai dari mati
-          carModel.userData.meshLampuDepan = child;
+        const name = child.name;
+
+        // Deteksi Lampu Depan
+        if (name === "Lampu_Depan" || 
+            name.includes("HEADLIGHT_LENS") || 
+            name.includes("FRONTBUMPER_mm_lights") ||
+            name.includes("CHASSIS_mm_lights")) {
+          
+          child.material = child.material.clone(); // Clone biar aman
+          child.material.emissive = new THREE.Color(0xffffff);
+          child.material.emissiveIntensity = 0;
+          child.material.side = THREE.DoubleSide; // Fix Lampu Kanan
+          
+          carModel.userData.headlightMeshes.push(child);
         }
 
-        // Konfigurasi Lampu Belakang
-        if (child.name === "Lampu_Belakang") {
-          child.material = child.material.clone();
-          child.material.emissive = new THREE.Color(0xff0000); // Warna Merah
-          child.material.emissiveIntensity = 0; // Mulai dari mati
-          carModel.userData.meshLampuBelakang = child;
+        // Deteksi Lampu Belakang
+        if (name.includes("TAILLIGHT") || 
+            name.includes("REARBUMPER_mm_lights") || 
+            name.includes("BOOT_mm_lights") || 
+            name.includes("BRAKES") ||
+            name === "Lampu_Belakang") {
+           
+           child.material = child.material.clone();
+           child.material.emissive = new THREE.Color(0xff0000);
+           child.material.emissiveIntensity = 0;
+           child.material.side = THREE.DoubleSide;
+
+           carModel.userData.taillightMeshes.push(child);
         }
       }
     });
 
-    // 2. BUAT SUMBER CAHAYA (SOROTAN KE JALAN)
-    // Kita tetap butuh ini agar aspal menjadi terang
-
-    // Fungsi bikin SpotLight (Headlight)
+    // 2. SETUP SUMBER CAHAYA
     const addSpotLight = (x, y, z) => {
-      const light = new THREE.SpotLight(0xffffff, 0, 80, 0.6, 0.5, 1);
+      const light = new THREE.SpotLight(0xffffff, 0, 100, 0.6, 0.5, 1);
       light.position.set(x, y, z);
-      light.target.position.set(x, 0.5, z + 10); // Sorot ke depan
+      light.target.position.set(x, 0.5, z + 20); 
       carModel.add(light);
       carModel.add(light.target);
       carModel.userData.lightSources.push({ light: light, type: "head" });
     };
 
-    // Fungsi bikin PointLight (Taillight - Cahaya merah di aspal belakang)
     const addPointLight = (x, y, z) => {
       const light = new THREE.PointLight(0xff0000, 0, 5, 2);
       light.position.set(x, y, z);
@@ -303,38 +330,35 @@ function toggleCarLights(turnOn) {
       carModel.userData.lightSources.push({ light: light, type: "tail" });
     };
 
-    // Posisi manual (Sesuaikan sedikit jika kurang pas dengan posisi mesh aslimu)
-    // Depan (Kiri & Kanan)
-    addSpotLight(0.75, 0.85, 2.1);
-    addSpotLight(-0.75, 0.85, 2.1);
-    // Belakang (Kiri & Kanan)
-    addPointLight(0.65, 0.95, -2.35);
-    addPointLight(-0.65, 0.95, -2.35);
+    addSpotLight(0.8, 0.8, 2.2); 
+    addSpotLight(-0.8, 0.8, 2.2);
+    addPointLight(0.7, 0.9, -2.4); 
+    addPointLight(-0.7, 0.9, -2.4);
 
     carModel.userData.lightsInitialized = true;
   }
 
-  // --- B. LOGIKA ON/OFF ---
+  // --- B. LOGIKA ON/OFF DEFAULT (Semua Nyala jika true) ---
+  const headIntensity = turnOn ? 50 : 0;
+  const tailIntensity = turnOn ? 5 : 0;
+  const spotIntensity = turnOn ? 50 : 0;
+  const pointIntensity = turnOn ? 5 : 0;
 
-  // 1. Atur Visual Mesh (Glowing Effect)
-  // Intensity tinggi (5 atau 10) agar efek Bloom bekerja maksimal
-  if (carModel.userData.meshLampuDepan) {
-    carModel.userData.meshLampuDepan.material.emissiveIntensity = turnOn ? 10 : 0;
+  // Update Mesh Depan
+  if (carModel.userData.headlightMeshes) {
+      carModel.userData.headlightMeshes.forEach(mesh => mesh.material.emissiveIntensity = headIntensity);
   }
-  if (carModel.userData.meshLampuBelakang) {
-    carModel.userData.meshLampuBelakang.material.emissiveIntensity = turnOn ? 5 : 0;
+  // Update Mesh Belakang
+  if (carModel.userData.taillightMeshes) {
+      carModel.userData.taillightMeshes.forEach(mesh => mesh.material.emissiveIntensity = tailIntensity);
   }
-
-  // 2. Atur Sumber Cahaya (Sorotan)
-  carModel.userData.lightSources.forEach((item) => {
-    if (item.type === "head") {
-      item.light.intensity = turnOn ? 30 : 0; // Headlight terang
-    } else {
-      item.light.intensity = turnOn ? 3 : 0; // Taillight redup
-    }
-  });
+  // Update Cahaya
+  if (carModel.userData.lightSources) {
+      carModel.userData.lightSources.forEach(item => {
+          item.light.intensity = (item.type === 'head') ? spotIntensity : pointIntensity;
+      });
+  }
 }
-
 // ==========================================
 // 3. FUNGSI UPDATE CAR (ANIMASI + PHYSICS)
 // ==========================================
@@ -815,6 +839,23 @@ function scene_BridgeDesign() {
       carSpeed = 0;
       toggleCarLights(true);
 
+      if (carModel.userData.headlightMeshes) {
+          carModel.userData.headlightMeshes.forEach(mesh => mesh.material.emissiveIntensity = 0);
+      }
+
+    // C. Matikan SUMBER CAHAYA (Yang menyorot ke aspal)
+    if (carModel.userData.lightSources) {
+        carModel.userData.lightSources.forEach(item => {
+            // Matikan Lampu Depan
+            if (item.type === 'head') {
+                item.light.intensity = 0;
+            }
+            // Matikan Lampu Belakang (Sorotan Merah di aspal)
+            if (item.type === 'tail') {
+                item.light.intensity = 0; 
+            }
+        });
+      }
       const SKY_LINK_POS = new THREE.Vector3(0, 40, -10);
 
       if (carModel) {
@@ -971,7 +1012,39 @@ function scene_Highway() {
       lightingConfig.ambientColor = "#111122";
       updateLighting();
       toggleCarLights(true);
+// Kita buat kacanya sendiri menyala TERANG MERAH (Neon Look)
+    if (carModel.userData.taillightMeshes) {
+        carModel.userData.taillightMeshes.forEach(mesh => {
+            // Wajib false agar merahnya tidak jadi putih/kuning saat terang
+            if(mesh.material.toneMapped !== false) mesh.material.toneMapped = false;
+            
+            // Naikkan intensity kaca biar terlihat "pedas" di mata
+            mesh.material.emissiveIntensity = 5.0; 
+        });
+    }
 
+    // --- 2. CAHAYA DI JALAN (LIGHT SOURCE) ---
+    if (carModel.userData.lightSources) {
+        carModel.userData.lightSources.forEach(item => {
+            
+            if (item.type === 'tail') {
+                // Trik Realistis: Intensity Sedang, tapi Jarak Jauh & Pudar Pelan
+                
+                item.light.intensity = 0.8;  // Cukup terang, tidak berlebihan
+                
+                item.light.distance = 15.0;  // JANGKAUAN LUAS (Biar "banjir" merahnya jauh ke belakang)
+                
+                item.light.decay = 1.5;      // RAHASIA: Turunkan dari 2.0 ke 1.5
+                                             // Decay rendah = cahaya merambat lebih jauh sebelum hilang
+                                             // Ini bikin efek "kabut merah" di aspal tanpa bikin silau.
+
+                // Opsional: Geser posisi lampu sedikit ke belakang & atas
+                // Biar tidak menempel di aspal (menghindari titik putih di tanah)
+                // item.light.position.y += 0.1; 
+                // item.light.position.z -= 0.5;
+            }
+        });
+      }
       camera.near = 0.05;
       camera.updateProjectionMatrix();
 
@@ -1119,20 +1192,19 @@ function scene_MountainRoad() {
       updateLighting();
       toggleCarLights(true);
 
+      if (carModel.userData.headlightMeshes) {
+          carModel.userData.headlightMeshes.forEach(mesh => mesh.material.emissiveIntensity = 0);
+      }
+
+
       // Light Fix (Micro Scale) - Sama seperti sebelumnya
       if (carModel && carModel.userData.lightSources) {
         carModel.userData.lightSources.forEach((item) => {
           if (item.type === "head") {
-            item.light.intensity = 0.2;
-            item.light.distance = 0.1;
-            item.light.angle = 0.5;
-            item.light.penumbra = 0.2;
-            item.light.position.z = 2.3;
-            item.light.target.position.z = 10.0;
+            item.light.intensity = 0;
+            item.light.distance = 0;
           } else if (item.type === "tail") {
-            item.light.intensity = 0.05;
-            item.light.distance = 0.03;
-            item.light.position.z = -3.5;
+            item.light.intensity = 0;
           }
           if (item.light.shadow) {
             item.light.shadow.bias = -0.0001;
@@ -1267,19 +1339,13 @@ function scene_AmericanUnderpass() {
       }
       updateSunPosition();
       toggleCarLights(true);
-      if (carModel && carModel.userData.lightSources) {
-        carModel.userData.lightSources.forEach((item) => {
-          if (item.type === "head") {
-            item.light.distance = 0;
-            item.light.intensity = 0;
-            item.light.angle = 0;
-          } else {
-            item.light.distance = 500;
-            item.light.intensity = 1000;
-          }
-        });
-        if (carModel.userData.meshLampuDepan) carModel.userData.meshLampuDepan.material.emissiveIntensity = 100;
-        if (carModel.userData.meshLampuBelakang) carModel.userData.meshLampuBelakang.material.emissiveIntensity = 50;
+      if (carModel.userData.headlightMeshes) {
+          carModel.userData.headlightMeshes.forEach(mesh => mesh.material.emissiveIntensity = 0);
+      }
+      if (carModel.userData.lightSources) {
+          carModel.userData.lightSources.forEach(item => {
+              if (item.type === 'head') item.light.intensity = 0;
+          });
       }
       camera.near = 2.0;
       camera.far = 100000;
