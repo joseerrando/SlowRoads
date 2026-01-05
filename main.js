@@ -140,7 +140,6 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
-
 window.addEventListener("keyup", (e) => {
   keys[e.key.toLowerCase()] = false;
 });
@@ -149,7 +148,6 @@ window.addEventListener("keyup", (e) => {
 // 5. HELPER FUNCTIONS
 // ==========================================
 // ==========================================
-
 
 // Fungsi untuk mengecek koordinat
 function checkCoordinates() {
@@ -191,7 +189,6 @@ function loadCar() {
       carWheels = [];
       pivotFL = null;
       pivotFR = null;
-      
 
       // --- B. FUNGSI PEMBANTU: SETUP SMART OFFSET ---
       // Fungsi ini kita taruh di dalam agar mudah akses carModel
@@ -266,8 +263,6 @@ function loadCar() {
   );
 }
 
-
-
 function toggleCarLights(turnOn) {
   if (!carModel) return;
 
@@ -283,32 +278,23 @@ function toggleCarLights(turnOn) {
         const name = child.name;
 
         // Deteksi Lampu Depan
-        if (name === "Lampu_Depan" || 
-            name.includes("HEADLIGHT_LENS") || 
-            name.includes("FRONTBUMPER_mm_lights") ||
-            name.includes("CHASSIS_mm_lights")) {
-          
+        if (name === "Lampu_Depan" || name.includes("HEADLIGHT_LENS") || name.includes("FRONTBUMPER_mm_lights") || name.includes("CHASSIS_mm_lights")) {
           child.material = child.material.clone(); // Clone biar aman
           child.material.emissive = new THREE.Color(0xffffff);
           child.material.emissiveIntensity = 0;
           child.material.side = THREE.DoubleSide; // Fix Lampu Kanan
-          
+
           carModel.userData.headlightMeshes.push(child);
         }
 
         // Deteksi Lampu Belakang
-        if (name.includes("TAILLIGHT") || 
-            name.includes("REARBUMPER_mm_lights") || 
-            name.includes("BOOT_mm_lights") || 
-            name.includes("BRAKES") ||
-            name === "Lampu_Belakang") {
-           
-           child.material = child.material.clone();
-           child.material.emissive = new THREE.Color(0xff0000);
-           child.material.emissiveIntensity = 0;
-           child.material.side = THREE.DoubleSide;
+        if (name.includes("TAILLIGHT") || name.includes("REARBUMPER_mm_lights") || name.includes("BOOT_mm_lights") || name.includes("BRAKES") || name === "Lampu_Belakang") {
+          child.material = child.material.clone();
+          child.material.emissive = new THREE.Color(0xff0000);
+          child.material.emissiveIntensity = 0;
+          child.material.side = THREE.DoubleSide;
 
-           carModel.userData.taillightMeshes.push(child);
+          carModel.userData.taillightMeshes.push(child);
         }
       }
     });
@@ -317,7 +303,7 @@ function toggleCarLights(turnOn) {
     const addSpotLight = (x, y, z) => {
       const light = new THREE.SpotLight(0xffffff, 0, 100, 0.6, 0.5, 1);
       light.position.set(x, y, z);
-      light.target.position.set(x, 0.5, z + 20); 
+      light.target.position.set(x, 0.5, z + 20);
       carModel.add(light);
       carModel.add(light.target);
       carModel.userData.lightSources.push({ light: light, type: "head" });
@@ -330,9 +316,9 @@ function toggleCarLights(turnOn) {
       carModel.userData.lightSources.push({ light: light, type: "tail" });
     };
 
-    addSpotLight(0.8, 0.8, 2.2); 
+    addSpotLight(0.8, 0.8, 2.2);
     addSpotLight(-0.8, 0.8, 2.2);
-    addPointLight(0.7, 0.9, -2.4); 
+    addPointLight(0.7, 0.9, -2.4);
     addPointLight(-0.7, 0.9, -2.4);
 
     carModel.userData.lightsInitialized = true;
@@ -346,17 +332,17 @@ function toggleCarLights(turnOn) {
 
   // Update Mesh Depan
   if (carModel.userData.headlightMeshes) {
-      carModel.userData.headlightMeshes.forEach(mesh => mesh.material.emissiveIntensity = headIntensity);
+    carModel.userData.headlightMeshes.forEach((mesh) => (mesh.material.emissiveIntensity = headIntensity));
   }
   // Update Mesh Belakang
   if (carModel.userData.taillightMeshes) {
-      carModel.userData.taillightMeshes.forEach(mesh => mesh.material.emissiveIntensity = tailIntensity);
+    carModel.userData.taillightMeshes.forEach((mesh) => (mesh.material.emissiveIntensity = tailIntensity));
   }
   // Update Cahaya
   if (carModel.userData.lightSources) {
-      carModel.userData.lightSources.forEach(item => {
-          item.light.intensity = (item.type === 'head') ? spotIntensity : pointIntensity;
-      });
+    carModel.userData.lightSources.forEach((item) => {
+      item.light.intensity = item.type === "head" ? spotIntensity : pointIntensity;
+    });
   }
 }
 // ==========================================
@@ -736,14 +722,14 @@ function scene_City() {
         // === TRANSISI KE SCENE 2 ===
         // Mobil mulai melambat di detik 16, jadi kita cut di detik 15.5
         if (t > 15.5 && !isTransitioning) {
-            isTransitioning = true;
-            console.log("🎬 Cut! Moving to Bridge...");
-            fadeOut(() => {
-                loadMap("2. bridge_design"); // Pindah ke Scene 2
-            });
-            return;
+          isTransitioning = true;
+          console.log("🎬 Cut! Moving to Bridge...");
+          fadeOut(() => {
+            loadMap("2. bridge_design"); // Pindah ke Scene 2
+          });
+          return;
         }
-        
+
         // Loop standard dimatikan karena kita pindah scene
         if (isTransitioning) return;
 
@@ -825,7 +811,6 @@ function scene_BridgeDesign() {
       lightingConfig.dirIntensity = 2.5;
       updateLighting();
 
-
       // NAVIGASI
       const POINT_START_TURN = new THREE.Vector3(-25.26, 10.85, -73.21);
       const POINT_END_TURN = new THREE.Vector3(185.24, 13.55, -90.06);
@@ -839,20 +824,20 @@ function scene_BridgeDesign() {
       toggleCarLights(true);
 
       if (carModel.userData.headlightMeshes) {
-          carModel.userData.headlightMeshes.forEach(mesh => mesh.material.emissiveIntensity = 0);
+        carModel.userData.headlightMeshes.forEach((mesh) => (mesh.material.emissiveIntensity = 0));
       }
 
-    // C. Matikan SUMBER CAHAYA (Yang menyorot ke aspal)
-    if (carModel.userData.lightSources) {
-        carModel.userData.lightSources.forEach(item => {
-            // Matikan Lampu Depan
-            if (item.type === 'head') {
-                item.light.intensity = 0;
-            }
-            // Matikan Lampu Belakang (Sorotan Merah di aspal)
-            if (item.type === 'tail') {
-                item.light.intensity = 0; 
-            }
+      // C. Matikan SUMBER CAHAYA (Yang menyorot ke aspal)
+      if (carModel.userData.lightSources) {
+        carModel.userData.lightSources.forEach((item) => {
+          // Matikan Lampu Depan
+          if (item.type === "head") {
+            item.light.intensity = 0;
+          }
+          // Matikan Lampu Belakang (Sorotan Merah di aspal)
+          if (item.type === "tail") {
+            item.light.intensity = 0;
+          }
         });
       }
       const SKY_LINK_POS = new THREE.Vector3(0, 40, -10);
@@ -871,16 +856,15 @@ function scene_BridgeDesign() {
 
       Director.loadScenario((delta, t) => {
         // === TRANSISI KE SCENE 3 ===
-      if (t > 18.5 && !isTransitioning) {
-            isTransitioning = true;
-            console.log("🎬 Cut! Moving to Highway (While Driving)...");
-            fadeOut(() => {
-                loadMap("3. Highway");
-            });
+        if (t > 18.5 && !isTransitioning) {
+          isTransitioning = true;
+          console.log("🎬 Cut! Moving to Highway (While Driving)...");
+          fadeOut(() => {
+            loadMap("3. Highway");
+          });
         }
         // Jika sedang transisi, hentikan logic lain
-        if(isTransitioning) return;
-
+        if (isTransitioning) return;
 
         // Logic Navigasi (Sama seperti sebelumnya)
         const distStart = carModel.position.distanceTo(POINT_START_TURN);
@@ -900,12 +884,12 @@ function scene_BridgeDesign() {
 
         if (t < 1.5) {
           carSpeed = 0;
-            carSpeed = 0;
-            if (carWheels.length > 0) {
-             // Putar ban secara visual manual (X axis)
-             // Kecepatan putar visual semakin kencang seiring mendekati t=1.5
-             const spinIntensity = t * 15.0; 
-             carWheels.forEach(w => w.rotation.x += spinIntensity * delta);
+          carSpeed = 0;
+          if (carWheels.length > 0) {
+            // Putar ban secara visual manual (X axis)
+            // Kecepatan putar visual semakin kencang seiring mendekati t=1.5
+            const spinIntensity = t * 15.0;
+            carWheels.forEach((w) => (w.rotation.x += spinIntensity * delta));
           }
         } else {
           if (hasReachedFinish) {
@@ -924,7 +908,9 @@ function scene_BridgeDesign() {
         }
 
         // Camera Logic (Sama)
-        let relOffset, lookTarget, cameraStiffness = 0.3;
+        let relOffset,
+          lookTarget,
+          cameraStiffness = 0.3;
         const ANCHOR_START_ORBIT = new THREE.Vector3(-2.0, 0.8, -1.8);
 
         if (t < 3.5) {
@@ -984,36 +970,35 @@ function scene_Highway() {
 
   fadeOut(() => {
     coreLoadMap("road__highway.glb", () => {
-      
       // --- (BAGIAN SETUP VISUAL & LIGHTING TETAP SAMA, TIDAK SAYA UBAH) ---
-      const streetLightColor = 0xffaa00; 
+      const streetLightColor = 0xffaa00;
       currentMapModel.updateMatrixWorld(true);
       currentMapModel.traverse((child) => {
         if (child.isMesh) {
-           if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
-           const box = child.geometry.boundingBox.clone();
-           box.applyMatrix4(child.matrixWorld);
-           const center = new THREE.Vector3();
-           const size = new THREE.Vector3();
-           box.getCenter(center);
-           box.getSize(size);
-           const isFloatingHigh = center.y > 5.0 && center.y < 20.0;
-           const isSmallObject = size.x < 10 && size.z < 10; 
-           if (isFloatingHigh && isSmallObject) {
-               child.material = child.material.clone();
-               child.material.emissive = new THREE.Color(streetLightColor);
-               child.material.emissiveIntensity = 10.0;
-               child.material.toneMapped = false;      
-               const spot = new THREE.SpotLight(streetLightColor, 100, 60, 1.0, 0.5, 1.0);
-               const localPos = child.worldToLocal(center.clone());
-               spot.position.copy(localPos);
-               const target = new THREE.Object3D();
-               target.position.set(localPos.x, localPos.y - 20, localPos.z);
-               child.add(target);
-               spot.target = target;
-               spot.castShadow = false; 
-               child.add(spot);
-           }
+          if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
+          const box = child.geometry.boundingBox.clone();
+          box.applyMatrix4(child.matrixWorld);
+          const center = new THREE.Vector3();
+          const size = new THREE.Vector3();
+          box.getCenter(center);
+          box.getSize(size);
+          const isFloatingHigh = center.y > 5.0 && center.y < 20.0;
+          const isSmallObject = size.x < 10 && size.z < 10;
+          if (isFloatingHigh && isSmallObject) {
+            child.material = child.material.clone();
+            child.material.emissive = new THREE.Color(streetLightColor);
+            child.material.emissiveIntensity = 10.0;
+            child.material.toneMapped = false;
+            const spot = new THREE.SpotLight(streetLightColor, 100, 60, 1.0, 0.5, 1.0);
+            const localPos = child.worldToLocal(center.clone());
+            spot.position.copy(localPos);
+            const target = new THREE.Object3D();
+            target.position.set(localPos.x, localPos.y - 20, localPos.z);
+            child.add(target);
+            spot.target = target;
+            spot.castShadow = false;
+            child.add(spot);
+          }
         }
       });
       // ----------------------------------------------------------------
@@ -1047,32 +1032,32 @@ function scene_Highway() {
       toggleCarLights(true);
 
       if (carModel.userData.taillightMeshes) {
-        carModel.userData.taillightMeshes.forEach(mesh => {
-            if(mesh.material.toneMapped !== false) mesh.material.toneMapped = false;
-            mesh.material.emissiveIntensity = 5.0; 
+        carModel.userData.taillightMeshes.forEach((mesh) => {
+          if (mesh.material.toneMapped !== false) mesh.material.toneMapped = false;
+          mesh.material.emissiveIntensity = 5.0;
         });
       }
 
       if (carModel.userData.lightSources) {
-        carModel.userData.lightSources.forEach(item => {
-            if (item.type === 'tail') {
-                item.light.intensity = 0.8; 
-                item.light.distance = 15.0; 
-                item.light.decay = 1.5; 
-            }
+        carModel.userData.lightSources.forEach((item) => {
+          if (item.type === "tail") {
+            item.light.intensity = 0.8;
+            item.light.distance = 15.0;
+            item.light.decay = 1.5;
+          }
         });
       }
       camera.near = 0.05;
       camera.updateProjectionMatrix();
 
       // --- PERBAIKAN STARTUP ---
-      carSettings.autoDrive = true; 
-      carSettings.maxSpeed = 0.6; 
+      carSettings.autoDrive = true;
+      carSettings.maxSpeed = 0.6;
       carSettings.acceleration = 0.015;
       carSettings.turnSpeed = 0.04;
-      
+
       // ✅ LANGSUNG KECEPATAN PENUH (Biar tidak ada momen akselerasi dari 0)
-      carSpeed = 0.6; 
+      carSpeed = 0.6;
 
       let currentTargetIndex = 0;
       let currentRotSpeed = 0;
@@ -1080,19 +1065,19 @@ function scene_Highway() {
       let accumulator = 0;
       let physicsRotY = INITIAL_ROT;
       let turnTimer = 0;
-      let isTransitioning = false; 
+      let isTransitioning = false;
 
       Director.loadScenario((delta, t) => {
         // === TRANSISI CUT ===
         if (t > 7.5 && !isTransitioning) {
-            isTransitioning = true;
-            console.log("🎬 Cut! Moving to Mountain...");
-            fadeOut(() => {
-                loadMap("4. Mountain Road");
-            });
-            return;
+          isTransitioning = true;
+          console.log("🎬 Cut! Moving to Mountain...");
+          fadeOut(() => {
+            loadMap("4. Mountain Road");
+          });
+          return;
         }
-        if(isTransitioning) return;
+        if (isTransitioning) return;
 
         // --- UPDATE FISIKA ---
         accumulator += Math.min(delta, 0.1);
@@ -1102,11 +1087,10 @@ function scene_Highway() {
             carSpeed = 0;
             currentRotSpeed = 0;
             steeringAngle = 0;
-          }
-          else {
+          } else {
             // Pastikan settings selalu true
-            carSettings.autoDrive = true; 
-            
+            carSettings.autoDrive = true;
+
             if (turnTimer > 0) {
               turnTimer -= FIXED_STEP;
               if (turnTimer <= 0) {
@@ -1119,7 +1103,7 @@ function scene_Highway() {
               const target = TRACK_PATH[currentTargetIndex];
               const carPos = new THREE.Vector2(carModel.position.x, carModel.position.z);
               const targetPos = new THREE.Vector2(target.x, target.z);
-              
+
               if (carPos.distanceTo(targetPos) < 2.0) {
                 steeringAngle = target.turnVal;
                 currentRotSpeed = target.rotSpeed;
@@ -1173,12 +1157,12 @@ function scene_Highway() {
         // Kamera dipaksa SNAP (copy) posisi, jangan di-Lerp.
         // Ini biar pas layar nyala, kamera sudah pas di posisi mobil, gak "terbang" dari spawn.
         if (t < 0.5) {
-            camera.position.copy(worldCam);
-            controls.target.copy(worldTarget);
+          camera.position.copy(worldCam);
+          controls.target.copy(worldTarget);
         } else {
-            // Setelah 0.5 detik, baru gerak halus (Lerp)
-            camera.position.lerp(worldCam, 0.08);
-            controls.target.lerp(worldTarget, 0.08);
+          // Setelah 0.5 detik, baru gerak halus (Lerp)
+          camera.position.lerp(worldCam, 0.08);
+          controls.target.lerp(worldTarget, 0.08);
         }
       });
 
@@ -1188,9 +1172,8 @@ function scene_Highway() {
       // 2. Tunggu 500ms (Biar mobil jalan dulu + kamera nempel)
       // Baru buka layarnya.
       setTimeout(() => {
-        fadeIn(); 
+        fadeIn();
       }, 500);
-
     });
   });
 }
@@ -1199,32 +1182,31 @@ function scene_Highway() {
 // Map 4
 // =========================================
 function scene_MountainRoad() {
-  console.log("🎬 Map 4: Mountain Road (Seamless Intro Fix)");
+  console.log("🎬 Map 4: Mountain Road (Visuals + Fixed Physics)");
 
   if (typeof AutoShowcase !== "undefined") AutoShowcase.active = false;
 
-  // --- SETTING RENDER ---
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.0)); 
+  // --- SETTING RENDER (Sesuai Kode Anda) ---
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.0));
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFShadowMap; 
-  camera.far = 150; // Naikkan dikit biar ga terlalu gelap
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  camera.far = 150;
   camera.updateProjectionMatrix();
-  if (scene) scene.fog = new THREE.Fog(0xaaccff, 50, 140); 
+  if (scene) scene.fog = new THREE.Fog(0xaaccff, 50, 140);
 
   fadeOut(() => {
     coreLoadMap("mountain_road_scene.glb", () => {
-      
       // --- OPTIMISASI OBJEK ---
       if (currentMapModel) {
         currentMapModel.traverse((child) => {
           if (child.isMesh) {
-            child.matrixAutoUpdate = false; 
-            child.updateMatrix(); 
-            child.frustumCulled = true; 
-            child.castShadow = true; 
+            child.matrixAutoUpdate = false;
+            child.updateMatrix();
+            child.frustumCulled = true;
+            child.castShadow = true;
             child.receiveShadow = true;
             if (child.name.toLowerCase().includes("road")) {
-                child.castShadow = false;
+              child.castShadow = false;
             }
           }
         });
@@ -1232,8 +1214,8 @@ function scene_MountainRoad() {
 
       // --- SETUP TRACK ---
       const TRACK_PATH = [
-        { x: -1.0, z: -2.28, turnVal: -0.4, rotSpeed: 0.0405, duration: 0.45, name: "Tikungan 1" },
-        { x: -0.96, z: -1.85, turnVal: 0.4, rotSpeed: 0.0335, duration: 0.345, name: "Tikungan 2" },
+        { x: -1.0, z: -2.28, turnVal: -0.4, rotSpeed: 0.0425, duration: 0.5, name: "Tikungan 1" },
+        { x: -0.96, z: -1.85, turnVal: 0.4, rotSpeed: 0.0335, duration: 0.4, name: "Tikungan 2" },
         { x: -1.04, z: -1.47, turnVal: 0.4, rotSpeed: -0.028, duration: 0.25, name: "Tikungan 3" },
         { x: -1.02, z: -1.13, turnVal: -0.4, rotSpeed: -0.045, duration: 0.45, name: "Tikungan 4" },
         { x: -0.75, z: -0.8, turnVal: -0.4, rotSpeed: 0.035, duration: 0.35, name: "Tikungan 5" },
@@ -1241,29 +1223,38 @@ function scene_MountainRoad() {
       ];
 
       // --- SETUP MOBIL ---
-      setSpawn(-1.14, 10, -2.53, 6.83);
+      const INITIAL_ROT = 6.83; // Simpan rotasi awal
+      setSpawn(-1.14, 10, -2.53, INITIAL_ROT);
+
       scaleParams.autoScale = false;
       const MICRO_SCALE = 0.01;
       if (carModel) {
-          carModel.scale.set(MICRO_SCALE, MICRO_SCALE, MICRO_SCALE);
-          carModel.traverse(c => { if(c.isMesh) { c.castShadow = true; c.receiveShadow = true; }});
+        carModel.scale.set(MICRO_SCALE, MICRO_SCALE, MICRO_SCALE);
+        carModel.traverse((c) => {
+          if (c.isMesh) {
+            c.castShadow = true;
+            c.receiveShadow = true;
+          }
+        });
       }
-      
+
       // --- LIGHTING ---
       lightingThemes.daylight();
-      if (typeof dirLight !== 'undefined' && dirLight) {
-          dirLight.castShadow = true;
-          dirLight.shadow.mapSize.width = 1024;
-          dirLight.shadow.mapSize.height = 1024;
-          const d = 8; 
-          dirLight.shadow.camera.left = -d; dirLight.shadow.camera.right = d;
-          dirLight.shadow.camera.top = d; dirLight.shadow.camera.bottom = -d;
-          dirLight.shadow.bias = -0.0005; 
+      if (typeof dirLight !== "undefined" && dirLight) {
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        const d = 8;
+        dirLight.shadow.camera.left = -d;
+        dirLight.shadow.camera.right = d;
+        dirLight.shadow.camera.top = d;
+        dirLight.shadow.camera.bottom = -d;
+        dirLight.shadow.bias = -0.0005;
       }
       if (carModel.userData.lightSources) {
         carModel.userData.lightSources.forEach((item) => {
-             item.light.intensity = 0; 
-             item.light.castShadow = false; 
+          item.light.intensity = 0;
+          item.light.castShadow = false;
         });
       }
 
@@ -1274,14 +1265,13 @@ function scene_MountainRoad() {
       const _destLook = new THREE.Vector3();
       const _carPos2D = new THREE.Vector2();
       const _targetPos2D = new THREE.Vector2();
-      const _sunOffset = new THREE.Vector3(5, 12, 5); 
+      const _sunOffset = new THREE.Vector3(5, 12, 5);
 
-      // --- SETUP POSISI AWAL ---
+      // --- SETUP POSISI AWAL KAMERA (SATELLITE) ---
       if (carModel) {
-        // Posisi "Satellite" (Tinggi, tegak lurus)
-        const introOffset = new THREE.Vector3(0, 8.0, 0.0); 
-        const introLook = new THREE.Vector3(0, 0, 0.0); // Lihat pas ke tengah mobil
-        
+        const introOffset = new THREE.Vector3(0, 8.0, 0.0);
+        const introLook = new THREE.Vector3(0, 0, 0.0);
+
         const startPos = carModel.position.clone().add(introOffset.applyQuaternion(carModel.quaternion));
         const startLook = carModel.position.clone().add(introLook.applyQuaternion(carModel.quaternion));
 
@@ -1290,11 +1280,23 @@ function scene_MountainRoad() {
         camera.updateMatrixWorld(true);
       }
 
+      // --- VARIABLE SETUP ---
+      carSettings.autoDrive = true; // Langsung jalan
+      carSettings.maxSpeed = 0.8;
+      carSettings.acceleration = 0.01;
+      carSettings.turnSpeed = 0.05;
+      carSpeed = 0;
+
       let currentTargetIndex = 0;
       let currentRotSpeed = 0;
-      let stopTurnTime = 0;
       let isTransitioning = false;
-      let scenicTime = 0; 
+      let scenicTime = 0;
+
+      // 🔥 VARIABEL FIXED TIME STEP (SOLUSI STABIL) 🔥
+      const FIXED_STEP = 1 / 60;
+      let accumulator = 0;
+      let physicsRotY = INITIAL_ROT; // Variabel fisika terpisah
+      let turnTimer = 0; // Timer mundur (lebih akurat dari stopTurnTime)
 
       const BASE_HEIGHT = 0.22;
       const BASE_DIST = 0.35;
@@ -1307,96 +1309,105 @@ function scene_MountainRoad() {
         }
         if (isTransitioning) return;
 
-        // --- 1. LOGIKA TRANSISI (INTRO FACTOR) ---
-        // Kita perpanjang waktu transisi penuh sampai 5 detik
-        // Agar perubahan dari "Jatuh" ke "Nyetir" menyatu sempurna
-        let introFactor = 0;
-        if (t < 5.0) {
-            // Cubic Ease Out: Cepat di awal, sangat pelan di akhir
-            const p = t / 5.0;
-            introFactor = 1.0 - (1.0 - Math.pow(1.0 - p, 3)); 
-            introFactor = 1.0 - p; // Override linear sedikit untuk kontrol lebih baik
-            introFactor = Math.max(0, 1.0 - (t / 5.0)); // Simple linear fade
-            
-            // Jadikan kurva melengkung (Quadratic) biar "soft landing"
-            introFactor = introFactor * introFactor; 
+        // --- 1. LOGIKA FISIKA STABIL (FIXED TIME STEP) ---
+        accumulator += delta;
+
+        while (accumulator >= FIXED_STEP) {
+          // Pastikan mobil jalan
+          if (!carSettings.autoDrive) carSettings.autoDrive = true;
+
+          // Timer Belok (Countdown)
+          if (turnTimer > 0) {
+            turnTimer -= FIXED_STEP;
+            if (turnTimer <= 0) {
+              steeringAngle = 0;
+              currentRotSpeed = 0;
+              turnTimer = 0;
+            }
+          }
+
+          // Cek Jalur
+          if (currentTargetIndex < TRACK_PATH.length) {
+            const target = TRACK_PATH[currentTargetIndex];
+            _carPos2D.set(carModel.position.x, carModel.position.z);
+            _targetPos2D.set(target.x, target.z);
+
+            if (_carPos2D.distanceTo(_targetPos2D) < 0.05) {
+              steeringAngle = target.turnVal;
+              currentRotSpeed = target.rotSpeed;
+              turnTimer = target.duration; // Set timer
+              currentTargetIndex++;
+            }
+          }
+
+          // Update Rotasi Fisika (Bukan Visual)
+          if (currentRotSpeed !== 0) {
+            // Multiplier 0.33 dipertahankan agar speed sama dengan tuning lama Anda
+            physicsRotY -= currentRotSpeed * 0.33;
+          }
+
+          accumulator -= FIXED_STEP;
         }
 
-        // --- UPDATE MOBIL ---
-        if (!carSettings.autoDrive) carSettings.autoDrive = true;
-        
-        if (stopTurnTime > 0 && t > stopTurnTime) {
-          steeringAngle = 0;
-          currentRotSpeed = 0;
-          stopTurnTime = 0;
+        // --- 2. UPDATE VISUAL (INTERPOLASI) ---
+        if (carModel) {
+          // Lerp visual ke fisika agar smooth
+          const smoothFactor = 0.5;
+          carModel.rotation.y = THREE.MathUtils.lerp(carModel.rotation.y, physicsRotY, smoothFactor);
         }
-        if (currentTargetIndex < TRACK_PATH.length) {
-          const target = TRACK_PATH[currentTargetIndex];
-          _carPos2D.set(carModel.position.x, carModel.position.z);
-          _targetPos2D.set(target.x, target.z);
-          if (_carPos2D.distanceTo(_targetPos2D) < 0.05) {
-            steeringAngle = target.turnVal;
-            currentRotSpeed = target.rotSpeed;
-            stopTurnTime = t + (target.duration || 0);
-            currentTargetIndex++;
-          }
-        }
-        if (currentRotSpeed !== 0) {
-          carModel.rotation.y -= currentRotSpeed * (delta / 0.0166) * 0.33;
+
+        // --- 3. LOGIKA KAMERA (CAM BLENDING) ---
+        // Ini logika kamera dari kode Anda (Satellite Intro -> Anti Tree)
+
+        let introFactor = 0;
+        if (t < 5.0) {
+          const p = t / 5.0;
+          // Intro Curve (Quadratic)
+          introFactor = Math.max(0, 1.0 - p);
+          introFactor = introFactor * introFactor;
         }
 
         if (carModel) {
-            scenicTime += delta * 0.5;
-            const turnFactor = Math.abs(steeringAngle); 
+          scenicTime += delta * 0.5;
+          const turnFactor = Math.abs(steeringAngle);
 
-            // --- A. POSISI DRIVE NORMAL ---
-            const safeHeight = BASE_HEIGHT + (turnFactor * 0.15);
-            const safeDist = BASE_DIST - (turnFactor * 0.05);
-            const breathingY = Math.sin(scenicTime) * 0.02; 
-            
-            const targetNormalY = safeHeight + breathingY;
-            const targetNormalZ = -safeDist;
-            // Saat driving, kita lihat jauh ke depan (Z = 2.0)
-            const lookNormalZ = 2.0; 
+          // A. POSISI DRIVE NORMAL
+          const safeHeight = BASE_HEIGHT + turnFactor * 0.15;
+          const safeDist = BASE_DIST - turnFactor * 0.05;
+          const breathingY = Math.sin(scenicTime) * 0.02;
 
-            // --- B. POSISI INTRO (SATELLITE) ---
-            const introY = 7.0; // Tinggi 7 meter
-            const introZ = 0.1; // Hampir tegak lurus
-            // Saat intro, kita lihat ke mobil (Z = 0.0)
-            const lookIntroZ = 0.0; 
+          const targetNormalY = safeHeight + breathingY;
+          const targetNormalZ = -safeDist;
+          const lookNormalZ = 2.0;
 
-            // --- C. BLENDING POSISI (Mencegah Snap) ---
-            const finalHeight = THREE.MathUtils.lerp(targetNormalY, introY, introFactor);
-            const finalDist = THREE.MathUtils.lerp(targetNormalZ, introZ, introFactor);
-            
-            // --- D. BLENDING LOOK TARGET (Kunci Anti-Patah) ---
-            // Transisi fokus mata dari "Lihat Mobil" ke "Lihat Jalan"
-            const finalLookZ = THREE.MathUtils.lerp(lookNormalZ, lookIntroZ, introFactor);
-            
-            _camTargetOffset.set(0, finalHeight, finalDist);
-            _lookTargetOffset.set(steeringAngle * 0.3, -0.05, finalLookZ);
+          // B. POSISI INTRO (SATELLITE)
+          const introY = 7.0;
+          const introZ = 0.1;
+          const lookIntroZ = 0.0;
 
-            // Calculate World Position
-            _destPos.copy(carModel.position).add(_camTargetOffset.clone().applyQuaternion(carModel.quaternion));
-            _destLook.copy(carModel.position).add(_lookTargetOffset.clone().applyQuaternion(carModel.quaternion));
+          // C. BLENDING
+          const finalHeight = THREE.MathUtils.lerp(targetNormalY, introY, introFactor);
+          const finalDist = THREE.MathUtils.lerp(targetNormalZ, introZ, introFactor);
+          const finalLookZ = THREE.MathUtils.lerp(lookNormalZ, lookIntroZ, introFactor);
 
-            // --- E. BLENDING SMOOTHNESS/KEKENYALAN ---
-            // Ini perbaikan utamanya.
-            // Jangan pakai IF/ELSE. Pakai Lerp juga untuk smoothness.
-            // Intro = 0.5 (Cepat/Kaku mengikuti posisi jatuh)
-            // Drive = 0.04 (Lemas/Lazy)
-            // Kita blending nilai ini berdasarkan waktu.
-            let dynamicSmoothness = THREE.MathUtils.lerp(0.04, 0.5, introFactor);
+          _camTargetOffset.set(0, finalHeight, finalDist);
+          _lookTargetOffset.set(steeringAngle * 0.3, -0.05, finalLookZ);
 
-            // Terapkan
-            camera.position.lerp(_destPos, dynamicSmoothness);
-            controls.target.lerp(_destLook, dynamicSmoothness);
+          // Calc World Position
+          _destPos.copy(carModel.position).add(_camTargetOffset.clone().applyQuaternion(carModel.quaternion));
+          _destLook.copy(carModel.position).add(_lookTargetOffset.clone().applyQuaternion(carModel.quaternion));
 
-            // Shadow Follow
-            if (typeof dirLight !== 'undefined' && dirLight) {
-                dirLight.position.copy(carModel.position).add(_sunOffset);
-                dirLight.target.position.copy(carModel.position);
-            }
+          // D. DYNAMIC SMOOTHNESS
+          let dynamicSmoothness = THREE.MathUtils.lerp(0.04, 0.5, introFactor);
+
+          camera.position.lerp(_destPos, dynamicSmoothness);
+          controls.target.lerp(_destLook, dynamicSmoothness);
+
+          // Shadow Follow
+          if (typeof dirLight !== "undefined" && dirLight) {
+            dirLight.position.copy(carModel.position).add(_sunOffset);
+            dirLight.target.position.copy(carModel.position);
+          }
         }
       });
 
@@ -1443,12 +1454,12 @@ function scene_AmericanUnderpass() {
       updateSunPosition();
       toggleCarLights(true);
       if (carModel.userData.headlightMeshes) {
-          carModel.userData.headlightMeshes.forEach(mesh => mesh.material.emissiveIntensity = 0);
+        carModel.userData.headlightMeshes.forEach((mesh) => (mesh.material.emissiveIntensity = 0));
       }
       if (carModel.userData.lightSources) {
-          carModel.userData.lightSources.forEach(item => {
-              if (item.type === 'head') item.light.intensity = 0;
-          });
+        carModel.userData.lightSources.forEach((item) => {
+          if (item.type === "head") item.light.intensity = 0;
+        });
       }
       camera.near = 2.0;
       camera.far = 100000;
@@ -1463,12 +1474,12 @@ function scene_AmericanUnderpass() {
       Director.loadScenario((delta, timeInShot) => {
         // === LOOPING BALIK KE SCENE 1 ===
         if (timeInShot > 3 && !isTransitioning) {
-             isTransitioning = true;
-             console.log("🎬 Movie Loop! Back to City...");
-             fadeOut(() => {
-                 loadMap("1. City"); // Loop kembali ke awal
-             });
-             return;
+          isTransitioning = true;
+          console.log("🎬 Movie Loop! Back to City...");
+          fadeOut(() => {
+            loadMap("1. City"); // Loop kembali ke awal
+          });
+          return;
         }
 
         if (Director.currentCut === null) {
