@@ -1135,21 +1135,35 @@ function scene_Highway() {
           accumulator -= FIXED_STEP;
         }
 
-        // B. VISUAL HALUS
+        // B. VISUAL HALUS (TETAP)
         if (carModel) {
           const smoothFactor = Math.min(delta * 15.0, 1.0);
           carModel.rotation.y = THREE.MathUtils.lerp(carModel.rotation.y, physicsRotY, smoothFactor);
         }
 
         // ====================================================
-        // 🎥 CINEMATIC CAMERA (NO INTERIOR)
+        // 🎥 CINEMATIC CAMERA
         // ====================================================
         let camOffset, lookTargetOffset;
 
-        // Shot 1: High Tower (0-3s)
+        // SHOT 1: REAR ZOOM OUT (0-3s) -> INI YANG DIUBAH
+        // Mulai dari belakang mobil -> Mundur menjauh
         if (t < 3.0) {
-          camOffset = new THREE.Vector3(0.0, 10.0, -8.0);
-          lookTargetOffset = new THREE.Vector3(0, 0.0, 8.0);
+          const p = t / 3.0;
+          const smoothP = THREE.MathUtils.smoothstep(p, 0, 1);
+
+          // Start: Dekat Belakang (Standard Chase)
+          // X=0 (Tengah), Y=2.0 (Agak rendah), Z=-5.0 (Dekat bumper)
+          const startPos = new THREE.Vector3(0.0, 2.0, -5.0);
+
+          // End: Jauh Belakang (High Tower effect tapi mundur)
+          // X=0, Y=6.0 (Naik), Z=-12.0 (Mundur jauh)
+          const endPos = new THREE.Vector3(0.0, 6.0, -12.0);
+
+          camOffset = new THREE.Vector3().lerpVectors(startPos, endPos, smoothP);
+
+          // Fokus tetap ke depan mobil
+          lookTargetOffset = new THREE.Vector3(0, 0.5, 5.0);
         }
         // Shot 2: Helicopter Side (3-6s)
         else if (t >= 3.0 && t < 6.0) {
@@ -1204,6 +1218,7 @@ function scene_MountainRoad() {
         { x: -1.04, z: -1.47, turnVal: 0.4, rotSpeed: -0.028, duration: 0.25, name: "Tikungan 3" },
         { x: -1.02, z: -1.13, turnVal: -0.4, rotSpeed: -0.045, duration: 0.45, name: "Tikungan 4" },
         { x: -0.75, z: -0.8, turnVal: -0.4, rotSpeed: 0.035, duration: 0.35, name: "Tikungan 5" },
+        { x: -0.59, z: -0.46, turnVal: 0.4, rotSpeed: 0.0335, duration: 0.35, name: "Tikungan 6" },
       ];
 
       // 2. SETUP SPAWN
