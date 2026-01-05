@@ -796,8 +796,6 @@ function scene_City() {
           if (carModel) controls.target.lerp(carModel.position, 0.1);
         }
       });
-
-      Director.play();
       fadeIn();
     });
   });
