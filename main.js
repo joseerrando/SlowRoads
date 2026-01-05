@@ -827,6 +827,7 @@ function scene_BridgeDesign() {
       lightingConfig.dirIntensity = 2.5;
       updateLighting();
 
+
       // NAVIGASI
       const POINT_START_TURN = new THREE.Vector3(-25.26, 10.85, -73.21);
       const POINT_END_TURN = new THREE.Vector3(185.24, 13.55, -90.06);
@@ -872,18 +873,13 @@ function scene_BridgeDesign() {
 
       Director.loadScenario((delta, t) => {
         // === TRANSISI KE SCENE 3 ===
-        if (hasReachedFinish) {
-            finishTimer += delta;
-            // Tunggu 0.5 detik setelah rem, lalu fade out
-            if (finishTimer > 0.5 && !isTransitioning) {
-                isTransitioning = true;
-                console.log("🎬 Cut! Moving to Highway...");
-                fadeOut(() => {
-                    loadMap("3. Highway");
-                });
-            }
+      if (t > 18.5 && !isTransitioning) {
+            isTransitioning = true;
+            console.log("🎬 Cut! Moving to Highway (While Driving)...");
+            fadeOut(() => {
+                loadMap("3. Highway");
+            });
         }
-        
         // Jika sedang transisi, hentikan logic lain
         if(isTransitioning) return;
 
@@ -906,6 +902,13 @@ function scene_BridgeDesign() {
 
         if (t < 1.5) {
           carSpeed = 0;
+            carSpeed = 0;
+            if (carWheels.length > 0) {
+             // Putar ban secara visual manual (X axis)
+             // Kecepatan putar visual semakin kencang seiring mendekati t=1.5
+             const spinIntensity = t * 15.0; 
+             carWheels.forEach(w => w.rotation.x += spinIntensity * delta);
+          }
         } else {
           if (hasReachedFinish) {
             carSettings.autoDrive = false;
@@ -929,10 +932,10 @@ function scene_BridgeDesign() {
         if (t < 3.5) {
           const p = t / 3.5;
           const smoothP = THREE.MathUtils.smoothstep(p, 0, 1);
-          const startPos = new THREE.Vector3(-1.1, 0.4, -1.0);
+          const startPos = new THREE.Vector3(-1.3, 0.4, -1.1);
           const endPos = ANCHOR_START_ORBIT;
           relOffset = new THREE.Vector3().lerpVectors(startPos, endPos, smoothP);
-          const startLook = new THREE.Vector3(-0.9, 0.35, -1.0);
+          const startLook = new THREE.Vector3(-0.9, 0.4, -1.5);
           const endLook = new THREE.Vector3(0, 0.6, 0);
           lookTarget = carModel.position.clone().add(new THREE.Vector3().lerpVectors(startLook, endLook, smoothP));
           cameraStiffness = 0.2;
