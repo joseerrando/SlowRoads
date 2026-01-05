@@ -986,6 +986,76 @@ function scene_Highway() {
     coreLoadMap("road__highway.glb", () => {
       fadeIn();
 
+      const streetLightColor = 0xffaa00; 
+      
+      // Update matrix dunia dulu biar posisi akurat
+      currentMapModel.updateMatrixWorld(true);
+
+      currentMapModel.traverse((child) => {
+        if (child.isMesh) {
+            
+            // 1. Hitung Kotak Pembatas (Bounding Box) fisik objek
+            if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
+            
+            // 2. Konversi posisi kotak itu ke World Space (Posisi Dunia)
+            const box = child.geometry.boundingBox.clone();
+            box.applyMatrix4(child.matrixWorld);
+            
+            // 3. Ambil titik tengah (Center) dan ukurannya (Size)
+            const center = new THREE.Vector3();
+            const size = new THREE.Vector3();
+            box.getCenter(center);
+            box.getSize(size);
+
+            // 💡 LOGIKA DETEKSI BARU:
+            // - Tinggi (Y) titik tengah harus di atas 5 meter (Lampu jalan biasanya 6-10m)
+            // - Tinggi (Y) tidak boleh lebih dari 20 meter (Bukan awan/burung)
+            // - Ukuran objek tidak boleh raksasa (Size < 10m), biar tidak menempelkan lampu ke gedung/tanah
+            
+            const isFloatingHigh = center.y > 5.0 && center.y < 20.0;
+            const isSmallObject = size.x < 10 && size.z < 10; // Bukan tanah luas
+
+            if (isFloatingHigh && isSmallObject) {
+                
+                // console.log("💡 Light detected at Y:", center.y.toFixed(2));
+
+                // A. EFEK NEON (GLOW)
+                child.material = child.material.clone();
+                child.material.emissive = new THREE.Color(streetLightColor);
+                child.material.emissiveIntensity = 10.0;
+                child.material.toneMapped = false;      
+
+                // B. SUMBER CAHAYA (SPOTLIGHT)
+                const spot = new THREE.SpotLight(streetLightColor, 100, 60, 1.0, 0.5, 1.0);
+                
+                // Posisikan cahaya tepat di titik tengah objek (Center Bounding Box)
+                // Kita perlu convert balik ke local space child karena kita akan add ke child
+                const localPos = child.worldToLocal(center.clone());
+                spot.position.copy(localPos);
+                
+                // Arahkan ke bawah
+                const target = new THREE.Object3D();
+                target.position.set(localPos.x, localPos.y - 20, localPos.z);
+                child.add(target);
+                spot.target = target;
+                spot.castShadow = false; // Matikan shadow lampu jalan demi performa
+
+                child.add(spot);
+
+                // C. DEBUG VISUAL (BOLA MERAH)
+                // Ini untuk menandai objek mana yang dianggap lampu.
+                // Kalau berhasil, kamu akan lihat bola merah di tiang lampu.
+                /*
+                const debugGeom = new THREE.SphereGeometry(0.5, 8, 8);
+                const debugMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+                const debugMesh = new THREE.Mesh(debugGeom, debugMat);
+                debugMesh.position.copy(localPos);
+                child.add(debugMesh);
+                */
+            }
+        }
+      });
+
       const TRACK_PATH = [
         { x: 16.18, z: -56.94, turnVal: 0.2, rotSpeed: -0.015, duration: 0.8, name: "Tikungan 1" },
         { x: 2.78, z: -5.72, turnVal: -0.2, rotSpeed: 0.015, duration: 0.4, name: "Tikungan 2" },
@@ -1165,12 +1235,35 @@ function scene_Highway() {
 // Map 4
 // =========================================
 function scene_MountainRoad() {
-  console.log("🎬 Map 4 Mountain Road (Final Light Fix)");
+  console.log("🎬 Map 4: Mountain Road (Optimized Performance)");
 
   if (typeof AutoShowcase !== "undefined") AutoShowcase.active = false;
 
+  // --- TEKNIK 1: TURUNKAN RESOLUSI RENDER (GPU SAVER) ---
+  // Layar HP/Retina punya pixel ratio 3-4x, ini sangat berat.
+  // Kita kunci maksimal di 1.5x atau 2.0x agar tetap tajam tapi ringan.
+  const originalPixelRatio = renderer.getPixelRatio();
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); 
+
   fadeOut(() => {
     coreLoadMap("mountain_road_scene.glb", () => {
+      
+      // --- TEKNIK 2: STATIC OBJECT FREEZE (CPU SAVER) ---
+      // Karena map gunung TIDAK BERGERAK, kita matikan cek posisinya tiap frame.
+      if (currentMapModel) {
+        currentMapModel.traverse((child) => {
+          if (child.isMesh) {
+            child.matrixAutoUpdate = false; // Stop hitung posisi tiap frame
+            child.updateMatrix(); // Hitung sekali saja di awal
+            
+            // Opsional: Matikan castShadow untuk objek kecil di map (batu kecil dll)
+            // if (child.name.includes("grass") || child.name.includes("rock_small")) {
+            //    child.castShadow = false;
+            // }
+          }
+        });
+      }
+
       // 1. TRACK PATH
       const TRACK_PATH = [
         { x: -1.0, z: -2.28, turnVal: -0.4, rotSpeed: 0.0405, duration: 0.45, name: "Tikungan 1" },
@@ -1186,10 +1279,20 @@ function scene_MountainRoad() {
       const MICRO_SCALE = 0.01;
       if (carModel) carModel.scale.set(MICRO_SCALE, MICRO_SCALE, MICRO_SCALE);
       if (scaleParams) scaleParams.size = MICRO_SCALE;
+      
+      // Lighting Setup
       lightingThemes.daylight();
       lightingConfig.targetX = -1.14;
       lightingConfig.targetZ = -2.53;
-      lightingConfig.shadowRange = 5;
+      
+      // Shadow Optimization: Karena mobil kecil, shadow range kecil saja cukup
+      lightingConfig.shadowRange = 5; 
+      // Matikan shadow map yang terlalu besar jika tidak perlu
+      if(dirLight && dirLight.shadow.mapSize.width > 2048) {
+         dirLight.shadow.mapSize.width = 2048;
+         dirLight.shadow.mapSize.height = 2048;
+      }
+
       updateLighting();
       toggleCarLights(true);
 
@@ -1197,8 +1300,7 @@ function scene_MountainRoad() {
           carModel.userData.headlightMeshes.forEach(mesh => mesh.material.emissiveIntensity = 0);
       }
 
-
-      // Light Fix (Micro Scale) - Sama seperti sebelumnya
+      // Light Fix (Micro Scale)
       if (carModel && carModel.userData.lightSources) {
         carModel.userData.lightSources.forEach((item) => {
           if (item.type === "head") {
@@ -1207,9 +1309,10 @@ function scene_MountainRoad() {
           } else if (item.type === "tail") {
             item.light.intensity = 0;
           }
+          // Optimize shadow bias untuk skala mikro
           if (item.light.shadow) {
-            item.light.shadow.bias = -0.0001;
-            item.light.shadow.mapSize.width = 512;
+            item.light.shadow.bias = -0.00005; // Bias lebih kecil
+            item.light.shadow.mapSize.width = 512; // Kecilkan resolusi shadow lampu mobil
             item.light.shadow.mapSize.height = 512;
           }
         });
@@ -1228,13 +1331,16 @@ function scene_MountainRoad() {
       let currentTargetIndex = 0;
       let currentRotSpeed = 0;
       let stopTurnTime = 0;
-      let isTransitioning = false; // Flag Transisi
+      let isTransitioning = false; 
 
       Director.loadScenario((delta, t) => {
         // === TRANSISI KE SCENE 5 ===
-        // Scene biasanya selesai di t=25, cut di t=24
         if (t > 24.0 && !isTransitioning) {
             isTransitioning = true;
+            
+            // Restore Pixel Ratio Asli sebelum pindah map (Opsional, atau biarkan ringan)
+            // renderer.setPixelRatio(originalPixelRatio);
+
             console.log("🎬 Cut! Moving to American Underpass...");
             fadeOut(() => {
                 loadMap("5. American Underpass:"); 
@@ -1360,7 +1466,7 @@ function scene_AmericanUnderpass() {
 
       Director.loadScenario((delta, timeInShot) => {
         // === LOOPING BALIK KE SCENE 1 ===
-        if (timeInShot > 4.0 && !isTransitioning) {
+        if (timeInShot > 3 && !isTransitioning) {
              isTransitioning = true;
              console.log("🎬 Movie Loop! Back to City...");
              fadeOut(() => {
