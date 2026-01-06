@@ -348,6 +348,48 @@ function toggleCarLights(turnOn) {
 // ==========================================
 // 3. FUNGSI UPDATE CAR (ANIMASI + PHYSICS)
 // ==========================================
+
+function updateCarGlass(mode) {
+  if (!carModel) return;
+
+  // Cek agar tidak update berulang-ulang jika mode belum berubah
+  if (carModel.userData.lastGlassMode === mode) return;
+  carModel.userData.lastGlassMode = mode;
+
+  console.log(`🪟 Mengubah Mode Kaca ke: ${mode}`);
+
+  carModel.traverse((child) => {
+    if (child.isMesh) {
+      // Deteksi nama part kaca (sesuaikan dengan nama aset asli)
+      const name = child.name.toLowerCase();
+      if (name.includes("window")  || name.includes("windshield")) {
+        // || name.includes("glass")
+        // Render 2 sisi (luar dalam)
+
+        if (mode === "INTERIOR") {
+          // MODE DALAM: Bening (Clear)
+          child.material.transparent = true;
+          child.material.side = THREE.DoubleSide; 
+          child.material.opacity = 0.15;        // Sangat bening
+          child.material.color.set(0xffffff);   // Warna Putih
+          child.material.roughness = 0.0;
+          child.material.metalness = 0.1;
+        } else {
+          // MODE LUAR: Gelap (Tinted / Kaca Film)
+          child.material.transparent = false;
+          child.material.side = THREE.DoubleSide; 
+          // child.material.opacity = 0.8;         // Agak solid
+          // child.material.color.set(0x000000);   // Warna Hitam/Gelap
+          // child.material.roughness = 0.1;
+          // child.material.metalness = 0.9;       // Lebih reflektif dari luar
+        }
+        
+        child.material.needsUpdate = true;
+      }
+    }
+  });
+}
+
 function updateCar() {
   if (!carModel) return;
 
@@ -734,6 +776,7 @@ function scene_City() {
       lightingConfig.dirPositionY = 50;
       lightingConfig.dirPositionX = 100;
       updateLighting();
+      updateCarGlass("EXTERIOR");
 
       // D. Setup Director & Mobil
       carSettings.autoDrive = false;
@@ -746,6 +789,7 @@ function scene_City() {
 
       // E. Jalankan Director
       Director.loadScenario((delta, t) => {
+        updateCarGlass("EXTERIOR");
         // === TRANSISI KE SCENE 2 ===
         // Mobil mulai melambat di detik 16, jadi kita cut di detik 15.5
         if (t > 15.5 && !isTransitioning) {
@@ -862,6 +906,10 @@ function scene_BridgeDesign() {
       let isTransitioning = false;
       let currentShotPhase = "";
 
+      // === RESET STATUS KACA SAAT LOAD MAP ===
+      // Default: Exterior (Gelap) saat baru spawn
+      updateCarGlass("EXTERIOR");
+
       Director.loadScenario((delta, t) => {
         // === TRANSISI CUT ===
         if (t > 18.5 && !isTransitioning) {
@@ -905,20 +953,13 @@ function scene_BridgeDesign() {
         let relLook = new THREE.Vector3();
         let cameraStiffness = 0.1;
 
-        // --- 1. DEFINISI TITIK SAMBUNG (ANCHOR) YANG PRESISI ---
-        // Kita kunci variabel ini agar Shot 2 dan Shot 3 menggunakan DATA YANG SAMA.
-        // Tidak ada lagi angka kira-kira.
         const SYNC_ANGLE = -2.25;
         const SYNC_RADIUS = 3.0;
-
-        // Hitung posisi X dan Z berdasarkan rumus lingkaran (Orbit)
         const SYNC_X = Math.sin(SYNC_ANGLE) * SYNC_RADIUS;
         const SYNC_Z = Math.cos(SYNC_ANGLE) * SYNC_RADIUS;
 
-        // Titik temu Shot 2 & Shot 3
         const ANCHOR_POS = new THREE.Vector3(SYNC_X, 1.0, SYNC_Z);
         const ANCHOR_LOOK = new THREE.Vector3(0, 0.7, 0.0);
-
         const POS_DRIVER = new THREE.Vector3(0.36, 1.05, 0.15);
 
         // --- SHOT 1: INTERIOR (0s - 1.5s) ---
@@ -926,6 +967,9 @@ function scene_BridgeDesign() {
           if (currentShotPhase !== "INTERIOR") {
             console.log("📸 SHOT 1: Interior");
             currentShotPhase = "INTERIOR";
+            
+            // 🔥 PANGGIL HELPER FUNCTION: JADI BENING
+            updateCarGlass("INTERIOR"); 
           }
 
           relOffset.copy(POS_DRIVER);
@@ -938,6 +982,9 @@ function scene_BridgeDesign() {
           if (currentShotPhase !== "SWING") {
             console.log("📸 SHOT 2: Swing");
             currentShotPhase = "SWING";
+            
+            // 🔥 PANGGIL HELPER FUNCTION: JADI GELAP (TINTED)
+            updateCarGlass("EXTERIOR");
           }
 
           const duration = 3.0;
@@ -945,7 +992,7 @@ function scene_BridgeDesign() {
           const smoothP = p < 0.5 ? 2 * p * p : -1 + (4 - 2 * p) * p;
 
           const p0 = POS_DRIVER;
-          const p2 = ANCHOR_POS; // <-- END DI TITIK HASIL HITUNGAN (PASTI PAS)
+          const p2 = ANCHOR_POS;
           const p1 = new THREE.Vector3(3.5, 1.5, -0.5);
 
           const oneMinusT = 1 - smoothP;
@@ -965,13 +1012,13 @@ function scene_BridgeDesign() {
           if (currentShotPhase !== "ORBIT") {
             console.log("📸 SHOT 3: Orbit");
             currentShotPhase = "ORBIT";
+            // Kaca sudah EXTERIOR, tidak perlu panggil fungsi lagi
           }
 
           const duration = 8.0;
           const progress = (t - 4.5) / duration;
           const smoothP = THREE.MathUtils.smoothstep(progress, 0, 1);
 
-          // START ANGLE WAJIB SAMA DENGAN SYNC_ANGLE
           const startAngle = SYNC_ANGLE;
           const endAngle = 1.5;
           const currentAngle = THREE.MathUtils.lerp(startAngle, endAngle, smoothP);
@@ -981,7 +1028,6 @@ function scene_BridgeDesign() {
 
           const x = Math.sin(currentAngle) * radius;
           const zBase = Math.cos(currentAngle) * radius;
-
           const forwardBoost = smoothP * 6.0;
           const z = zBase + forwardBoost;
 
@@ -1002,8 +1048,6 @@ function scene_BridgeDesign() {
           const progress = Math.min((t - 12.5) / duration, 1.0);
           const smoothP = THREE.MathUtils.smoothstep(progress, 0, 1);
 
-          // Start point: Hitung manual dari rumus akhir Shot 3
-          // Angle=1.5, Radius=3.0, Boost=6.0
           const s3_Angle = 1.5;
           const s3_Rad = 3.0;
           const s3_Boost = 6.0;
@@ -1110,6 +1154,7 @@ function scene_Highway() {
       lightingConfig.ambientColor = "#111122";
       updateLighting();
       toggleCarLights(true);
+      updateCarGlass("EXTERIOR");
 
       if (carModel.userData.taillightMeshes) {
         carModel.userData.taillightMeshes.forEach((mesh) => {
@@ -1148,6 +1193,7 @@ function scene_Highway() {
       let isTransitioning = false;
 
       Director.loadScenario((delta, t) => {
+        updateCarGlass("EXTERIOR");
         // === TRANSISI CUT ===
         if (t > 7.5 && !isTransitioning) {
           isTransitioning = true;
@@ -1330,17 +1376,17 @@ function scene_MountainRoad() {
         dirLight.shadow.camera.far = 500; 
         dirLight.shadow.bias = -0.0005;
 
-                  // 1. Sun Helper (Garis silang sumber cahaya)
-          const sunHelper = new THREE.DirectionalLightHelper(dirLight, 5);
-          scene.add(sunHelper);
+          //         // 1. Sun Helper (Garis silang sumber cahaya)
+          // const sunHelper = new THREE.DirectionalLightHelper(dirLight, 5);
+          // scene.add(sunHelper);
 
-          // 2. Shadow Camera Helper (Kotak Kuning area shadow)
-          const shadowHelper = new THREE.CameraHelper(dirLight.shadow.camera);
-          scene.add(shadowHelper);
+          // // 2. Shadow Camera Helper (Kotak Kuning area shadow)
+          // const shadowHelper = new THREE.CameraHelper(dirLight.shadow.camera);
+          // scene.add(shadowHelper);
           
-          // Simpan ke window agar bisa diakses global jika perlu
-          window.debugShadowHelper = shadowHelper;
-          window.debugSunHelper = sunHelper;
+          // // Simpan ke window agar bisa diakses global jika perlu
+          // window.debugShadowHelper = shadowHelper;
+          // window.debugSunHelper = sunHelper;
       }
       if (carModel.userData.lightSources) {
         carModel.userData.lightSources.forEach((item) => {
@@ -1348,6 +1394,8 @@ function scene_MountainRoad() {
           item.light.castShadow = false;
         });
       }
+
+      updateCarGlass("EXTERIOR");
 
       // --- REUSABLE VECTORS ---
       const _camTargetOffset = new THREE.Vector3();
@@ -1393,6 +1441,7 @@ function scene_MountainRoad() {
       const BASE_DIST = 0.35;
 
       Director.loadScenario((delta, t) => {
+        updateCarGlass("EXTERIOR");
         if (t > 24.0 && !isTransitioning) {
           isTransitioning = true;
           fadeOut(() => loadMap("5. American Underpass:"));
@@ -1533,6 +1582,7 @@ function scene_AmericanUnderpass() {
       lightingConfig.dirPositionZ = 100;
       lightingConfig.shadowRange = 1000;
       updateLighting();
+      updateCarGlass("EXTERIOR");
       if (dirLight) {
         const range = 1000;
         dirLight.shadow.camera.left = -range;
@@ -1563,6 +1613,7 @@ function scene_AmericanUnderpass() {
       let isTransitioning = false;
 
       Director.loadScenario((delta, timeInShot) => {
+        updateCarGlass("EXTERIOR");
         // === LOOPING BALIK KE SCENE 1 ===
         if (timeInShot > 3 && !isTransitioning) {
           isTransitioning = true;
