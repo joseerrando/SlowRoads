@@ -590,67 +590,88 @@ const Director = {
 let currentSpawnInfo = { x: 0, y: 2, z: 0, rot: 0 };
 
 // --- CORE LOADER HELPER ---
+let isMapLoading = false;
+
 function coreLoadMap(fileName, onMapLoaded) {
-  const loadingDiv = document.getElementById("loading");
-  if (loadingDiv) {
-    loadingDiv.style.display = "flex";
-    loadingDiv.innerHTML = '<div class="spinner"></div><span>Memuat Scene...</span>';
-  }
-
-  // Hapus map lama
-  if (currentMapModel) {
-    scene.remove(currentMapModel);
-    currentMapModel.traverse((child) => {
-      if (child.isMesh) {
-        if (child.material) child.material.dispose();
-        if (child.geometry) child.geometry.dispose();
-      }
-    });
-    currentMapModel = null;
-  }
-
-  // Stop previous cinematic if running
-  Director.stop();
-  Director.pendingScenario = null;
-
-  // Khusus Test Mode
-  if (fileName === "test") {
-    createTestModel();
-    finishLoading(); // Panggil fungsi selesai
-    if (onMapLoaded) onMapLoaded();
-    return;
-  }
-
-  const path = `./env/${fileName}`;
-
-  gltfLoader.load(
-    path,
-    (gltf) => {
-      currentMapModel = gltf.scene;
-      currentMapModel.traverse((child) => {
-        if (child.isMesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
-        }
-      });
-      scene.add(currentMapModel);
-
-      console.log(`✅ Map ${fileName} loaded!`);
-
-      // 🔥 FIX GLITCH: Panggil fungsi ini SAAT SELESAI LOAD
-      finishLoading();
-
-      if (onMapLoaded) onMapLoaded();
-      fadeIn();
-    },
-    undefined,
-    (err) => {
-      console.error("Gagal load map:", err);
-      finishLoading(); // Tetap buka layar meski error agar tidak stuck gelap
+    if (isMapLoading) {
+        console.warn("⚠️ Sedang memuat map lain, harap tunggu...");
+        return;
     }
-  );
-}
+    isMapLoading = true;
 
+    const loadingDiv = document.getElementById("loading");
+    if (loadingDiv) {
+        loadingDiv.style.display = "flex";
+        loadingDiv.innerHTML = '<div class="spinner"></div><span>Memuat Scene...</span>';
+    }
+
+    // --- 1. RESET GLOBAL VARIABLES (PENTING!) ---
+    carSpeed = 0;
+    steeringAngle = 0;
+    // Reset keys agar mobil tidak jalan sendiri kalau user menahan tombol saat ganti map
+    keys.w = false; keys.a = false; keys.s = false; keys.d = false;
+    
+    // Reset Settings ke Default Aman
+    carSettings.autoDrive = false;
+    carSettings.followCamera = true; 
+    
+    // Stop Director & Cinematic
+    Director.stop();
+    Director.pendingScenario = null;
+
+    // Hapus map lama
+    if (currentMapModel) {
+        scene.remove(currentMapModel);
+        currentMapModel.traverse((child) => {
+            if (child.isMesh) {
+                if (child.material) child.material.dispose();
+                if (child.geometry) child.geometry.dispose();
+            }
+        });
+        currentMapModel = null;
+    }
+
+    // Khusus Test Mode
+    if (fileName === "test") {
+        createTestModel();
+        finishLoading();
+        isMapLoading = false;
+        if (onMapLoaded) onMapLoaded();
+        return;
+    }
+
+    const path = `./env/${fileName}`;
+
+    gltfLoader.load(
+        path,
+        (gltf) => {
+            currentMapModel = gltf.scene;
+            currentMapModel.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+            scene.add(currentMapModel);
+
+            console.log(`✅ Map ${fileName} loaded!`);
+
+            finishLoading();
+            isMapLoading = false; // Unlock loading
+
+            if (onMapLoaded) onMapLoaded();
+            fadeIn();
+        },
+        (xhr) => {
+            // Optional: Progress log
+        },
+        (err) => {
+            console.error("Gagal load map:", err);
+            finishLoading();
+            isMapLoading = false; // Unlock loading meski error
+        }
+    );
+}
 // Fungsi Bantuan Baru: Menangani penutupan layar loading & transisi
 function finishLoading() {
   const loadingDiv = document.getElementById("loading");
@@ -671,9 +692,15 @@ function setSpawn(x, y, z, rotationY = 0) {
   if (carModel) {
     carModel.position.set(x, y, z);
     carModel.rotation.y = rotationY;
+
+
     carSpeed = 0;
     steeringAngle = 0;
     currentSpawnInfo = { x, y, z, rot: rotationY };
+
+    carModel.updateMatrix();
+    carModel.updateMatrixWorld();
+
     updateCar();
   }
 }
@@ -1253,9 +1280,6 @@ function scene_MountainRoad() {
       if (currentMapModel) {
         currentMapModel.traverse((child) => {
           if (child.isMesh) {
-            child.matrixAutoUpdate = false;
-            child.updateMatrix();
-            child.frustumCulled = true;
             child.castShadow = true;
             child.receiveShadow = true;
             if (child.name.toLowerCase().includes("road")) {
@@ -1270,8 +1294,8 @@ function scene_MountainRoad() {
         { x: -1.0, z: -2.28, turnVal: -0.4, rotSpeed: 0.0425, duration: 0.5, name: "Tikungan 1" },
         { x: -0.96, z: -1.85, turnVal: 0.4, rotSpeed: 0.0335, duration: 0.4, name: "Tikungan 2" },
         { x: -1.04, z: -1.47, turnVal: 0.4, rotSpeed: -0.028, duration: 0.25, name: "Tikungan 3" },
-        { x: -1.02, z: -1.13, turnVal: -0.4, rotSpeed: -0.045, duration: 0.45, name: "Tikungan 4" },
-        { x: -0.75, z: -0.8, turnVal: -0.4, rotSpeed: 0.035, duration: 0.35, name: "Tikungan 5" },
+        { x: -1.02, z: -1.13, turnVal: -0.4, rotSpeed: -0.045, duration: 0.75, name: "Tikungan 4" },
+        { x: -0.75, z: -0.8, turnVal: -0.4, rotSpeed: 0.035, duration: 0.4, name: "Tikungan 5" },
         { x: -0.59, z: -0.46, turnVal: 0.4, rotSpeed: 0.0335, duration: 0.35, name: "Tikungan 6" },
       ];
 
@@ -1302,7 +1326,21 @@ function scene_MountainRoad() {
         dirLight.shadow.camera.right = d;
         dirLight.shadow.camera.top = d;
         dirLight.shadow.camera.bottom = -d;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 500; 
         dirLight.shadow.bias = -0.0005;
+
+                  // 1. Sun Helper (Garis silang sumber cahaya)
+          const sunHelper = new THREE.DirectionalLightHelper(dirLight, 5);
+          scene.add(sunHelper);
+
+          // 2. Shadow Camera Helper (Kotak Kuning area shadow)
+          const shadowHelper = new THREE.CameraHelper(dirLight.shadow.camera);
+          scene.add(shadowHelper);
+          
+          // Simpan ke window agar bisa diakses global jika perlu
+          window.debugShadowHelper = shadowHelper;
+          window.debugSunHelper = sunHelper;
       }
       if (carModel.userData.lightSources) {
         carModel.userData.lightSources.forEach((item) => {
@@ -1318,7 +1356,7 @@ function scene_MountainRoad() {
       const _destLook = new THREE.Vector3();
       const _carPos2D = new THREE.Vector2();
       const _targetPos2D = new THREE.Vector2();
-      const _sunOffset = new THREE.Vector3(5, 12, 5);
+      const _sunOffset = new THREE.Vector3(30, 150, 30);
 
       // --- SETUP POSISI AWAL KAMERA (SATELLITE) ---
       if (carModel) {
@@ -2157,7 +2195,7 @@ function animate(currentTime) {
   const deltaTime = currentTime - lastTime;
   if (deltaTime < frameInterval) return;
   lastTime = currentTime - (deltaTime % frameInterval);
-  const deltaSeconds = deltaTime / 1000;
+  const deltaSeconds = Math.min(deltaTime / 1000, 0.1);
 
   // 1. Update Mobil
   updateCar();
