@@ -790,20 +790,22 @@ function scene_City() {
 // Map 2
 // =========================================
 function scene_BridgeDesign() {
-  console.log("🎬 Map 2: Bridge ");
+  console.log("🎬 Map 2: Bridge (Seamless Math Fix)");
 
   if (typeof AutoShowcase !== "undefined") AutoShowcase.active = false;
+
   fadeOut(() => {
     coreLoadMap("bridge_design.glb", () => {
+      // --- SETUP STANDARD ---
       setSpawn(-190.02, 6.0, 6.39, 2.02);
       scaleParams.autoScale = true;
       if (carModel) carModel.scale.set(1, 1, 1);
       if (scaleParams) scaleParams.size = 1;
+
       lightingThemes.daylight();
       lightingConfig.shadowRange = 50;
       lightingConfig.targetX = -190;
       lightingConfig.targetZ = 0;
-      lightingConfig.shadowBias = 0;
       lightingConfig.dirPositionX = 50;
       lightingConfig.dirPositionY = 150;
       lightingConfig.dirPositionZ = 50;
@@ -816,147 +818,198 @@ function scene_BridgeDesign() {
       const POINT_END_TURN = new THREE.Vector3(185.24, 13.55, -90.06);
       const POINT_STOP = new THREE.Vector3(526.59, 5.9, -6.97);
 
-      carSettings.autoDrive = false;
+      carSettings.autoDrive = true;
       carSettings.maxSpeed = 1.4;
       carSettings.acceleration = 0.02;
       carSettings.turnSpeed = 0.05;
-      carSpeed = 0;
-      toggleCarLights(true);
+      carSpeed = 0.6;
 
-      if (carModel.userData.headlightMeshes) {
-        carModel.userData.headlightMeshes.forEach((mesh) => (mesh.material.emissiveIntensity = 0));
-      }
+      toggleCarLights(false);
 
-      // C. Matikan SUMBER CAHAYA (Yang menyorot ke aspal)
-      if (carModel.userData.lightSources) {
-        carModel.userData.lightSources.forEach((item) => {
-          // Matikan Lampu Depan
-          if (item.type === "head") {
-            item.light.intensity = 0;
-          }
-          // Matikan Lampu Belakang (Sorotan Merah di aspal)
-          if (item.type === "tail") {
-            item.light.intensity = 0;
-          }
-        });
-      }
-      const SKY_LINK_POS = new THREE.Vector3(0, 40, -10);
-
-      if (carModel) {
-        const startPos = new THREE.Vector3(2.0, 1.2, -4.5).applyMatrix4(carModel.matrixWorld);
-        camera.position.copy(startPos);
-        camera.lookAt(carModel.position);
-      }
+      camera.near = 0.05;
+      camera.updateProjectionMatrix();
 
       let isTurning = false;
       let hasFinishedTurn = false;
       let hasReachedFinish = false;
-      let isTransitioning = false; // Flag Transisi
-      let finishTimer = 0; // Timer setelah finish
+      let isTransitioning = false;
+      let currentShotPhase = "";
 
       Director.loadScenario((delta, t) => {
-        // === TRANSISI KE SCENE 3 ===
+        // === TRANSISI CUT ===
         if (t > 18.5 && !isTransitioning) {
           isTransitioning = true;
-          console.log("🎬 Cut! Moving to Highway (While Driving)...");
+          console.log("✂️ CUT! Pindah ke Highway...");
           fadeOut(() => {
             loadMap("3. Highway");
           });
         }
-        // Jika sedang transisi, hentikan logic lain
         if (isTransitioning) return;
 
-        // Logic Navigasi (Sama seperti sebelumnya)
+        // --- LOGIKA MOBIL ---
         const distStart = carModel.position.distanceTo(POINT_START_TURN);
         const distEnd = carModel.position.distanceTo(POINT_END_TURN);
         const distStop = carModel.position.distanceTo(POINT_STOP);
 
-        if (!isTurning && !hasFinishedTurn && distStart < 15.0) {
-          isTurning = true;
-        }
+        if (!isTurning && !hasFinishedTurn && distStart < 15.0) isTurning = true;
         if (isTurning && distEnd < 15.0) {
           isTurning = false;
           hasFinishedTurn = true;
         }
-        if (!hasReachedFinish && distStop < 10.0) {
-          hasReachedFinish = true;
-        }
+        if (!hasReachedFinish && distStop < 10.0) hasReachedFinish = true;
 
-        if (t < 1.5) {
-          carSpeed = 0;
-          carSpeed = 0;
-          if (carWheels.length > 0) {
-            // Putar ban secara visual manual (X axis)
-            // Kecepatan putar visual semakin kencang seiring mendekati t=1.5
-            const spinIntensity = t * 15.0;
-            carWheels.forEach((w) => (w.rotation.x += spinIntensity * delta));
-          }
+        if (hasReachedFinish) {
+          carSettings.autoDrive = false;
+          carSpeed *= 0.9;
         } else {
-          if (hasReachedFinish) {
-            carSettings.autoDrive = false;
-            carSpeed *= 0.8;
-            if (carSpeed < 0.01) carSpeed = 0;
+          if (!carSettings.autoDrive) carSettings.autoDrive = true;
+          if (isTurning) {
+            carModel.rotation.y -= 0.0022;
+            steeringAngle = 0.12;
           } else {
-            if (!carSettings.autoDrive) carSettings.autoDrive = true;
-            if (isTurning) {
-              carModel.rotation.y -= 0.0022;
-              steeringAngle = 0.12;
-            } else {
-              steeringAngle = 0;
-            }
+            steeringAngle = 0;
           }
         }
 
-        // Camera Logic (Sama)
-        let relOffset,
-          lookTarget,
-          cameraStiffness = 0.3;
-        const ANCHOR_START_ORBIT = new THREE.Vector3(-2.0, 0.8, -1.8);
+        // ====================================================
+        // 🔥 SEAMLESS CAMERA SYSTEM (MATH SYNC FIX) 🔥
+        // ====================================================
+        let relOffset = new THREE.Vector3();
+        let relLook = new THREE.Vector3();
+        let cameraStiffness = 0.1;
 
-        if (t < 3.5) {
-          const p = t / 3.5;
-          const smoothP = THREE.MathUtils.smoothstep(p, 0, 1);
-          const startPos = new THREE.Vector3(-1.3, 0.4, -1.1);
-          const endPos = ANCHOR_START_ORBIT;
-          relOffset = new THREE.Vector3().lerpVectors(startPos, endPos, smoothP);
-          const startLook = new THREE.Vector3(-0.9, 0.4, -1.5);
-          const endLook = new THREE.Vector3(0, 0.6, 0);
-          lookTarget = carModel.position.clone().add(new THREE.Vector3().lerpVectors(startLook, endLook, smoothP));
+        // --- 1. DEFINISI TITIK SAMBUNG (ANCHOR) YANG PRESISI ---
+        // Kita kunci variabel ini agar Shot 2 dan Shot 3 menggunakan DATA YANG SAMA.
+        // Tidak ada lagi angka kira-kira.
+        const SYNC_ANGLE = -2.25;
+        const SYNC_RADIUS = 3.0;
+
+        // Hitung posisi X dan Z berdasarkan rumus lingkaran (Orbit)
+        const SYNC_X = Math.sin(SYNC_ANGLE) * SYNC_RADIUS;
+        const SYNC_Z = Math.cos(SYNC_ANGLE) * SYNC_RADIUS;
+
+        // Titik temu Shot 2 & Shot 3
+        const ANCHOR_POS = new THREE.Vector3(SYNC_X, 1.0, SYNC_Z);
+        const ANCHOR_LOOK = new THREE.Vector3(0, 0.7, 0.0);
+
+        const POS_DRIVER = new THREE.Vector3(0.36, 1.05, 0.15);
+
+        // --- SHOT 1: INTERIOR (0s - 1.5s) ---
+        if (t < 1.5) {
+          if (currentShotPhase !== "INTERIOR") {
+            console.log("📸 SHOT 1: Interior");
+            currentShotPhase = "INTERIOR";
+          }
+
+          relOffset.copy(POS_DRIVER);
+          relLook.set(0.36, 1.0, 20.0);
+          cameraStiffness = 1.0;
+        }
+
+        // --- SHOT 2: SWING TO ANCHOR (1.5s - 4.5s) ---
+        else if (t >= 1.5 && t < 4.5) {
+          if (currentShotPhase !== "SWING") {
+            console.log("📸 SHOT 2: Swing");
+            currentShotPhase = "SWING";
+          }
+
+          const duration = 3.0;
+          const p = (t - 1.5) / duration;
+          const smoothP = p < 0.5 ? 2 * p * p : -1 + (4 - 2 * p) * p;
+
+          const p0 = POS_DRIVER;
+          const p2 = ANCHOR_POS; // <-- END DI TITIK HASIL HITUNGAN (PASTI PAS)
+          const p1 = new THREE.Vector3(3.5, 1.5, -0.5);
+
+          const oneMinusT = 1 - smoothP;
+          relOffset.x = oneMinusT * oneMinusT * p0.x + 2 * oneMinusT * smoothP * p1.x + smoothP * smoothP * p2.x;
+          relOffset.y = oneMinusT * oneMinusT * p0.y + 2 * oneMinusT * smoothP * p1.y + smoothP * smoothP * p2.y;
+          relOffset.z = oneMinusT * oneMinusT * p0.z + 2 * oneMinusT * smoothP * p1.z + smoothP * smoothP * p2.z;
+
+          const startLook = new THREE.Vector3(0.36, 1.0, 10.0);
+          const endLook = ANCHOR_LOOK;
+          relLook.lerpVectors(startLook, endLook, smoothP);
+
           cameraStiffness = 0.2;
-        } else if (t >= 3.5 && t < 11.5) {
-          const duration = 10.0;
-          const progress = (t - 3.5) / duration;
+        }
+
+        // --- SHOT 3: WIDE ORBIT (4.5s - 12.5s) ---
+        else if (t >= 4.5 && t < 12.5) {
+          if (currentShotPhase !== "ORBIT") {
+            console.log("📸 SHOT 3: Orbit");
+            currentShotPhase = "ORBIT";
+          }
+
+          const duration = 8.0;
+          const progress = (t - 4.5) / duration;
           const smoothP = THREE.MathUtils.smoothstep(progress, 0, 1);
-          const startAngle = -2.6;
+
+          // START ANGLE WAJIB SAMA DENGAN SYNC_ANGLE
+          const startAngle = SYNC_ANGLE;
           const endAngle = 1.5;
           const currentAngle = THREE.MathUtils.lerp(startAngle, endAngle, smoothP);
+
           const radiusArc = Math.sin(smoothP * Math.PI);
           const radius = 3.0 + radiusArc * 3.0;
+
           const x = Math.sin(currentAngle) * radius;
           const zBase = Math.cos(currentAngle) * radius;
+
           const forwardBoost = smoothP * 6.0;
           const z = zBase + forwardBoost;
-          relOffset = new THREE.Vector3(x, 1.0, z);
-          lookTarget = carModel.position.clone().add(new THREE.Vector3(0, 0.7, 0.0));
+
+          relOffset.set(x, 1.0, z);
+          relLook.set(0, 0.7, 0.0);
+
           cameraStiffness = 0.2;
-        } else {
+        }
+
+        // --- SHOT 4: ENDING (12.5s++) ---
+        else {
+          if (currentShotPhase !== "ENDING") {
+            console.log("📸 SHOT 4: Ending");
+            currentShotPhase = "ENDING";
+          }
+
           const duration = 6.0;
-          const progress = Math.min((t - 11.5) / duration, 1.0);
+          const progress = Math.min((t - 12.5) / duration, 1.0);
           const smoothP = THREE.MathUtils.smoothstep(progress, 0, 1);
-          const startPos = new THREE.Vector3(2.97, 1.0, 6.21);
+
+          // Start point: Hitung manual dari rumus akhir Shot 3
+          // Angle=1.5, Radius=3.0, Boost=6.0
+          const s3_Angle = 1.5;
+          const s3_Rad = 3.0;
+          const s3_Boost = 6.0;
+          const startX = Math.sin(s3_Angle) * s3_Rad;
+          const startZ = Math.cos(s3_Angle) * s3_Rad + s3_Boost;
+
+          const startPos = new THREE.Vector3(startX, 1.0, startZ);
           const startLook = new THREE.Vector3(0, 0.7, 0.0);
+
           const endPos = new THREE.Vector3(1.5, 0.4, -6.0);
           const endLook = new THREE.Vector3(0, 0.5, -2.0);
-          relOffset = new THREE.Vector3().lerpVectors(startPos, endPos, smoothP);
-          lookTarget = carModel.position.clone().add(new THREE.Vector3().lerpVectors(startLook, endLook, smoothP));
+
+          relOffset.lerpVectors(startPos, endPos, smoothP);
+          relLook.lerpVectors(startLook, endLook, smoothP);
           cameraStiffness = 0.05;
         }
 
-        const worldCam = relOffset.applyMatrix4(carModel.matrixWorld);
-        camera.position.lerp(worldCam, cameraStiffness);
-        controls.target.lerp(lookTarget, cameraStiffness);
+        // --- UPDATE ---
+        const worldCam = relOffset.clone().applyMatrix4(carModel.matrixWorld);
+        const rotatedLook = relLook.clone().applyQuaternion(carModel.quaternion);
+        const lookTarget = carModel.position.clone().add(rotatedLook);
+
+        if (t < 0.1) {
+          camera.position.copy(worldCam);
+          controls.target.copy(lookTarget);
+        } else {
+          camera.position.lerp(worldCam, cameraStiffness);
+          controls.target.lerp(lookTarget, cameraStiffness);
+        }
       });
+
       Director.play();
+      setTimeout(() => fadeIn(), 200);
     });
   });
 }
