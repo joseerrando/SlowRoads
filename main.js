@@ -23,9 +23,10 @@ const renderer = new THREE.WebGLRenderer({
   antialias: true,
   alpha: true,
 });
+
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = true; //tombol switch buat GUI
+renderer.shadowMap.type = THREE.PCFSoftShadowMap; //tipe bayangan
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
@@ -41,14 +42,14 @@ controls.update();
 const clock = new THREE.Clock();
 
 // ==========================================
-// 2. ADVANCED LIGHTING SYSTEM
+// 2. ADVANCED LIGHTING SYSTEM -- Lightning Configuration
 // ==========================================
 
-// Ambient Light
+// Ambient Light -- Ambient
 const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
 scene.add(ambientLight);
 
-// Directional Light (Main Sun)
+// Directional Light (Main Sun) -- Specular
 const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
 dirLight.position.set(50, 100, 50);
 dirLight.castShadow = true;
@@ -56,27 +57,28 @@ dirLight.shadow.mapSize.width = 2048;
 dirLight.shadow.mapSize.height = 2048;
 dirLight.shadow.camera.near = 0.5;
 dirLight.shadow.camera.far = 500;
+//Nanti keliatan di helper warna kuning
 dirLight.shadow.camera.left = -100;
 dirLight.shadow.camera.right = 100;
 dirLight.shadow.camera.top = 100;
 dirLight.shadow.camera.bottom = -100;
 scene.add(dirLight);
 
-// Hemisphere Light
+// Hemisphere Light Pencahayaan -- Diffuse
 const hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x8b4513, 0.5);
 scene.add(hemisphereLight);
 
-// Spot Light
+// Spot Light -- Specular
 const spotLight = new THREE.SpotLight(0xffffff, 1.0, 200, Math.PI / 6, 0.5, 2);
-spotLight.position.set(30, 40, 30);
+// spotLight.position.set(30, 40, 30);
 spotLight.castShadow = true;
 spotLight.shadow.mapSize.width = 1024;
 spotLight.shadow.mapSize.height = 1024;
 scene.add(spotLight);
 
-// Point Light
+// Point Light -- Specular 
 const pointLight = new THREE.PointLight(0xff6600, 0.5, 50);
-pointLight.position.set(-10, 5, -10);
+// pointLight.position.set(-10, 5, -10);
 scene.add(pointLight);
 
 // ==========================================
@@ -169,6 +171,7 @@ function checkCoordinates() {
 // ==========================================
 // 6. CAR LOADING & ANIMATION SYSTEM
 // ==========================================
+//loader car nissan (dari ban dll)
 function loadCar() {
   console.log("🚗 Memuat Mobil Nissan GT-R (Smart Offset)...");
   const carPath = "./source/2018_nissan_gr.glb";
@@ -191,7 +194,6 @@ function loadCar() {
       pivotFR = null;
 
       // --- B. FUNGSI PEMBANTU: SETUP SMART OFFSET ---
-      // Fungsi ini kita taruh di dalam agar mudah akses carModel
       const setupFrontSystem = (wheelName, brakeName) => {
         const wheelMesh = carModel.getObjectByName(wheelName);
         const brakeMesh = carModel.getObjectByName(brakeName);
@@ -263,6 +265,7 @@ function loadCar() {
   );
 }
 
+//buat lighting mobil (menggunakan spotlight & directional light & point light)
 function toggleCarLights(turnOn) {
   if (!carModel) return;
 
@@ -345,10 +348,8 @@ function toggleCarLights(turnOn) {
     });
   }
 }
-// ==========================================
-// 3. FUNGSI UPDATE CAR (ANIMASI + PHYSICS)
-// ==========================================
 
+//Transparant
 function updateCarGlass(mode) {
   if (!carModel) return;
 
@@ -389,6 +390,10 @@ function updateCarGlass(mode) {
     }
   });
 }
+// ==========================================
+// 3. FUNGSI UPDATE CAR (ANIMASI + PHYSICS)
+// ==========================================
+
 
 function updateCar() {
   if (!carModel) return;
@@ -438,7 +443,7 @@ function updateCar() {
     // lightingConfig.targetZ = carPos.z;
   }
 
-  // --- 3. COLLISION SYSTEM (BARU) ---
+  // --- 3. COLLISION SYSTEM MOBIL ---
   // Cek apakah di depan ada tembok?
   if (Math.abs(carSpeed) > 0.01) {
     // Hanya cek jika bergerak
@@ -447,7 +452,7 @@ function updateCar() {
       // 1. Balikkan arah speed (Bounce effect)
       carSpeed = -carSpeed * 0.5;
 
-      // 2. (Opsional) Jika AutoDrive, paksa stop sebentar atau putar balik logic
+      // handling error jika autoDrive nabrak
       if (carSettings.autoDrive) {
         // Untuk cinematic, kalau nabrak kita stop aja biar ga aneh
         carSpeed = 0;
@@ -640,7 +645,7 @@ function coreLoadMap(fileName, onMapLoaded) {
         return;
     }
     isMapLoading = true;
-
+    clearHelpers();
     const loadingDiv = document.getElementById("loading");
     if (loadingDiv) {
         loadingDiv.style.display = "flex";
@@ -754,6 +759,42 @@ function scene_TestMode() {
     // Tidak ada cinematic, langsung main
   });
 }
+function scene_CoastRoadAndRocks() {
+  console.log("🎬 Map: Coast Road");
+  coreLoadMap("coast_road_and_rocks_ver2.0.glb", () => {
+    setSpawn(-55, 13, 43.5, Math.PI / 2);
+    lightingThemes.sunset();
+
+    scaleParams.autoScale = false;
+    if (carModel) carModel.scale.set(1, 1, 1);
+    if (scaleParams) scaleParams.size = 1;
+
+    Director.loadScenario((delta, timeInShot) => {
+      if (Director.currentCut === null) Director.cutTo("Coast_Intro");
+
+      if (Director.currentCut === "Coast_Intro") {
+        controls.target.x += 2 * delta; // Panning
+        if (timeInShot > 5) Director.cutTo("Coast_Wheel");
+      }
+
+      if (Director.currentCut === "Coast_Wheel") {
+        if (timeInShot > 3) {
+          Director.stop();
+          camPresets.driverView(); // Ganti ke view supir
+        }
+      }
+    });
+  });
+}
+
+function scene_HokkaidoSnow() {
+  console.log("🎬 Map: Hokkaido Snowfield");
+  coreLoadMap("hokkaido_snowfield_mountain_road_and_forest.glb", () => {
+    setSpawn(-30, 25, 0, 0);
+    lightingThemes.foggy(); // Tema salju
+  });
+}
+
 
 function scene_City() {
   console.log("🎬 Map: City (Final Precise Setup)");
@@ -777,6 +818,7 @@ function scene_City() {
       lightingConfig.dirPositionX = 100;
       updateLighting();
       updateCarGlass("EXTERIOR");
+      createLightingHelpers();
 
       // D. Setup Director & Mobil
       carSettings.autoDrive = false;
@@ -882,8 +924,9 @@ function scene_BridgeDesign() {
       lightingConfig.dirPositionZ = 50;
       lightingConfig.ambientIntensity = 0.4;
       lightingConfig.dirIntensity = 2.5;
+      lightingConfig.shadowBias = 0;
       updateLighting();
-
+      createLightingHelpers();
       // NAVIGASI
       const POINT_START_TURN = new THREE.Vector3(-25.26, 10.85, -73.21);
       const POINT_END_TURN = new THREE.Vector3(185.24, 13.55, -90.06);
@@ -909,6 +952,15 @@ function scene_BridgeDesign() {
       // === RESET STATUS KACA SAAT LOAD MAP ===
       // Default: Exterior (Gelap) saat baru spawn
       updateCarGlass("EXTERIOR");
+
+      if (carModel) {
+    carModel.traverse((object) => {
+      if (object.isMesh) {
+        object.castShadow = true;    // Wajib: Agar mobil punya bayangan
+        object.receiveShadow = true; // Opsional: Agar mobil bisa kena bayangan sendiri
+      }
+    });
+  }
 
       Director.loadScenario((delta, t) => {
         // === TRANSISI CUT ===
@@ -1136,7 +1188,7 @@ function scene_Highway() {
       const INITIAL_ROT = 5.4;
       setSpawn(20.39, 0.2, -60.41, INITIAL_ROT);
 
-      scaleParams.autoScale = true;
+      // scaleParams.autoScale = true;
       if (carModel) carModel.scale.set(1, 1, 1);
       if (scaleParams) scaleParams.size = 1;
 
@@ -1155,7 +1207,7 @@ function scene_Highway() {
       updateLighting();
       toggleCarLights(true);
       updateCarGlass("EXTERIOR");
-
+      createLightingHelpers();
       if (carModel.userData.taillightMeshes) {
         carModel.userData.taillightMeshes.forEach((mesh) => {
           if (mesh.material.toneMapped !== false) mesh.material.toneMapped = false;
@@ -1396,7 +1448,7 @@ function scene_MountainRoad() {
       }
 
       updateCarGlass("EXTERIOR");
-
+createLightingHelpers();
       // --- REUSABLE VECTORS ---
       const _camTargetOffset = new THREE.Vector3();
       const _lookTargetOffset = new THREE.Vector3();
@@ -1583,6 +1635,7 @@ function scene_AmericanUnderpass() {
       lightingConfig.shadowRange = 1000;
       updateLighting();
       updateCarGlass("EXTERIOR");
+      createLightingHelpers();
       if (dirLight) {
         const range = 1000;
         dirLight.shadow.camera.left = -range;
@@ -1661,10 +1714,10 @@ const sceneRegistry = {
   "5. American Underpass:": scene_AmericanUnderpass,
   // "American Curve": scene_AmericanCurve
   // "American Underpass": scene_AmericanUnderpass,
-  // "Coast Road & Rocks": scene_CoastRoadAndRocks,
+  "Coast Road & Rocks": scene_CoastRoadAndRocks,
   // "Reef & Coastal": scene_ReefCoast,
   // "Coast Tunnel": scene_CoastTunnel,
-  // "Hokkaido Snowfield": scene_HokkaidoSnow,
+  "Hokkaido Snowfield": scene_HokkaidoSnow,
   // "Road to Mestia": scene_Mestia,
   // "Road with Trees": scene_TreesRoad,
   // "Tunnel Road": scene_TunnelRoad,
@@ -1766,6 +1819,7 @@ function detectRoadWidth() {
   return validSamples > 0 ? totalWidth / validSamples : 0;
 }
 
+//Logika utama collision
 function checkCollision(currentScale) {
   if (!currentMapModel || !carModel) return false;
 
@@ -1840,7 +1894,7 @@ function autoScaleCarForMap() {
 }
 
 // ==========================================
-// 10. CAMERA CONFIGURATION SYSTEM
+// 10. CAMERA CONFIGURATION SYSTEM -- Kriteria Penilaian
 // ==========================================
 
 const cameraConfig = {
@@ -1849,30 +1903,30 @@ const cameraConfig = {
   lookAtY: 0,
   fov: 60,
   damping: 0.1,
-  collisionEnabled: true,
-  collisionOffset: 2,
-  minDistance: 2,
-  maxDistance: 100,
-  minPolarAngle: 0,
-  maxPolarAngle: Math.PI,
-  enablePan: true,
-  enableRotate: true,
-  enableZoom: true,
+  collisionEnabled: true, //collision
+  collisionOffset: 2, //offset collision
+  minDistance: 2, //Batas Minimum Zoom Out
+  maxDistance: 100, // Batas Max Zoom In
+  minPolarAngle: 0, // PITCH(ATAS BAWAH) (0 = Tegak lurus dari atas
+  maxPolarAngle: Math.PI,  //Math.Pi/2 PITCH(ATAS BAWAH)
+  enablePan: true, 
+  enableRotate: true, // orbit rotate 
+  enableZoom: true, //untuk Zoom out dan Zoom in 
 };
 
 function updateOrbitControls() {
   controls.minDistance = cameraConfig.minDistance;
   controls.maxDistance = cameraConfig.maxDistance;
-  controls.minPolarAngle = cameraConfig.minPolarAngle;
-  controls.maxPolarAngle = cameraConfig.maxPolarAngle;
+  controls.minPolarAngle = cameraConfig.minPolarAngle; //apply pitch atas bawah 
+  controls.maxPolarAngle = cameraConfig.maxPolarAngle; //apply pitch atas bawah
   controls.enablePan = cameraConfig.enablePan;
   controls.enableRotate = cameraConfig.enableRotate;
-  controls.enableZoom = cameraConfig.enableZoom;
+  controls.enableZoom = cameraConfig.enableZoom; // Ini untuk menggaply ke orbit controls
 }
 updateOrbitControls();
 
 // ==========================================
-// 11. LIGHTING CONFIGURATION SYSTEM
+// 11. LIGHTING CONFIGURATION SYSTEM Untuk GUI
 // ==========================================
 
 const lightingConfig = {
@@ -1905,6 +1959,9 @@ const lightingConfig = {
   shadowAutoUpdate: true,
   theme: "daylight",
 };
+
+
+//Logika Lighting + Shadow
 
 function updateLighting() {
   // 1. Update Warna & Intensitas
@@ -2002,7 +2059,7 @@ function updateSunPosition() {
   if (window.shadowHelper) window.shadowHelper.update();
 }
 
-// Themes
+// Themes  Default (Sesuai Thema) --
 const lightingThemes = {
   daylight: () => {
     // 1. RESET INTENSITAS
@@ -2104,7 +2161,7 @@ carFolder
   .onChange((val) => {
     if (carModel && !scaleParams.autoScale) carModel.scale.set(val, val, val);
   });
-carFolder.add(scaleParams, "autoScale").name("⚡ Auto Scale");
+// carFolder.add(scaleParams, "autoScale").name("⚡ Auto Scale");
 
 // Reset Car (UPDATED)
 carFolder
@@ -2143,15 +2200,6 @@ followCamFolder.add(cameraConfig, "fov", 30, 120).name("Field of View").step(5);
 followCamFolder.add(cameraConfig, "damping", 0.01, 1.0).name("Smoothness").step(0.01);
 followCamFolder.add(cameraConfig, "collisionEnabled").name("Collision Avoidance");
 followCamFolder.add(cameraConfig, "collisionOffset", 1, 10).name("Collision Offset").step(0.5);
-
-// Orbit Controls
-const orbitFolder = camFolder.addFolder("🔄 Orbit Controls");
-orbitFolder.add(cameraConfig, "enableRotate").name("Enable Rotation");
-orbitFolder.add(cameraConfig, "enableZoom").name("Enable Zoom");
-orbitFolder.add(cameraConfig, "enablePan").name("Enable Pan");
-orbitFolder.add(cameraConfig, "minDistance", 1, 50).name("Min Distance").step(1);
-orbitFolder.add(cameraConfig, "maxDistance", 10, 200).name("Max Distance").step(10);
-camFolder.open();
 
 // Lighting
 const lightFolder = gui.addFolder("💡 Lighting System");
@@ -2264,13 +2312,13 @@ function animate(currentTime) {
   if (typeof updateSunPosition === "function") {
     updateSunPosition();
   }
+  updateHelpers();
   // Update Lighting Anim
   if (lightingConfig.environmentRotation !== 0) {
     const time = clock.getElapsedTime();
     hemisphereLight.position.x = Math.sin(time * 0.1) * 100;
     hemisphereLight.position.z = Math.cos(time * 0.1) * 100;
   }
-
   renderer.render(scene, camera);
 }
 
@@ -2414,3 +2462,53 @@ document.body.appendChild(loadingDiv);
 setTimeout(() => {
   if (loadingDiv) loadingDiv.style.display = "none";
 }, 3000);
+
+
+const debugGroup = new THREE.Group();
+scene.add(debugGroup);
+
+let dirLightHelper, shadowCameraHelper, spotLightHelper;
+
+function createLightingHelpers() {
+    // 1. Bersihkan helper lama jika ada
+    clearHelpers();
+
+    // 2. Directional Light Helper (Garis Kuning Matahari)
+    // Menunjukkan arah datangnya cahaya
+    if (dirLight) {
+        dirLightHelper = new THREE.DirectionalLightHelper(dirLight, 5); // Ukuran 5
+        debugGroup.add(dirLightHelper);
+
+        // SHADOW CAMERA HELPER (Sangat Penting!)
+        // Kotak kuning yang menunjukkan area perhitungan bayangan
+        shadowCameraHelper = new THREE.CameraHelper(dirLight.shadow.camera);
+        debugGroup.add(shadowCameraHelper);
+    }
+
+    // 3. Spot Light Helper (Kerucut Lampu Mobil)
+    if (spotLight) {
+        spotLightHelper = new THREE.SpotLightHelper(spotLight);
+        debugGroup.add(spotLightHelper);
+    }
+
+    console.log("🛠️ Lighting Helpers Created");
+}
+
+function clearHelpers() {
+    // Hapus semua anak dari debugGroup
+    while(debugGroup.children.length > 0){ 
+        const obj = debugGroup.children[0];
+        debugGroup.remove(obj);
+        if(obj.dispose) obj.dispose();
+    }
+    dirLightHelper = null;
+    shadowCameraHelper = null;
+    spotLightHelper = null;
+}
+
+function updateHelpers() {
+    // Panggil ini di animation loop agar helper mengikuti mobil
+    if (dirLightHelper) dirLightHelper.update();
+    if (shadowCameraHelper) shadowCameraHelper.update();
+    if (spotLightHelper) spotLightHelper.update();
+}
